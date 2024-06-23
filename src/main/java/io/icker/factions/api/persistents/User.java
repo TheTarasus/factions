@@ -1,15 +1,25 @@
 package io.icker.factions.api.persistents;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Collectors;
-
 import io.icker.factions.api.events.FactionEvents;
 import io.icker.factions.database.Database;
 import io.icker.factions.database.Field;
 import io.icker.factions.database.Name;
+import net.minecraft.network.MessageType;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.text.LiteralText;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.Util;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.registry.Registry;
+import net.minecraft.util.registry.RegistryKey;
+import net.minecraft.world.World;
+
+import java.awt.*;
+import java.util.*;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Name("User")
 public class User {
@@ -25,6 +35,7 @@ public class User {
         OWNER,
         LEADER,
         COMMANDER,
+        SHERIFF,
         MEMBER
     }
 
@@ -37,6 +48,8 @@ public class User {
 
     @Field("Name")
     private String name;
+    @Field("Prisoner")
+    private Prisoner prisoner;
 
     @Field("FactionID")
     private UUID factionID;
@@ -102,7 +115,43 @@ public class User {
     }
 
     public String getRankName() {
-        return getEnumName(rank);
+        Faction faction = this.getFaction();
+        if(faction == null)
+            return getLocalizedRankName();
+        Empire empire = Empire.getEmpireByFaction(faction.getID());
+        if(empire == null) return getLocalizedRankName();
+        switch (rank) {
+            case OWNER:
+                return "Его Величество - " + this.getName() + ", Император " + empire.name;
+            case LEADER:
+                return "Царский Регент";
+            case COMMANDER:
+                return "Фельдмаршал империи";
+            case SHERIFF:
+                return "Руководитель Царской охранки";
+            default:
+                return "Обычный столичный житель";
+        }
+    }
+
+    public String getLocalizedRankName(){
+        switch (rank){
+            case OWNER -> {
+                return "Владелец города";
+            }
+            case LEADER -> {
+                return "Мэр города";
+            }
+            case COMMANDER -> {
+                return "Городской полководец";
+            }
+            case SHERIFF -> {
+                return "Шериф";
+            }
+            default -> {
+                return  "Простолюдин";
+            }
+        }
     }
 
     public String getChatName() {
@@ -132,5 +181,42 @@ public class User {
 
     public static void save() {
         Database.save(User.class, STORE.values().stream().toList());
+    }
+
+    public Prisoner getPrisoner(MinecraftServer server){
+        if(this.prisoner == null) return null;
+        if(!this.prisoner.checkIfInJail(server)) {
+            server.getPlayerManager().broadcast(new LiteralText("§e[JAILBREAK!]§c " + this.name + "§e has escaped from §c" + this.prisoner.jailFaction + " prison!"), MessageType.CHAT, Util.NIL_UUID);
+            Faction jailFaction = Faction.getByName(this.prisoner.jailFaction);
+            jailFaction.jail.prisoners.removeIf(p -> p.prisoner.equals(this.name));
+            this.prisoner = null;
+            return null;
+        }
+        return this.prisoner;
+    }
+
+    public boolean setImprisoned(ServerWorld world, Faction jailFaction, int hours){
+        if(this.prisoner != null) return false;
+        Jail jail = jailFaction.jail;
+        BlockPos prisonRespawn = new BlockPos(jail.x, jail.y, jail.z);
+        Prisoner detained = new Prisoner(name, jailFaction.getName(), new Date().getTime() + (1000L * 3600L * hours), prisonRespawn.getX(), prisonRespawn.getY(), prisonRespawn.getZ(), world.getRegistryKey().getValue().toString());
+        if(!detained.isValid(world.getServer())) return false;
+        jailFaction.jail.prisoners.add(detained);
+        this.prisoner = detained;
+        ServerPlayerEntity player = world.getServer().getPlayerManager().getPlayer(this.name);
+        player.teleport(world, jail.x, jail.y, jail.z, jail.yaw, jail.pitch);
+        player.setSpawnPoint(world.getRegistryKey(), prisonRespawn, jail.yaw, true, false);
+
+        return true;
+    }
+
+    public void resetImprisoned(ServerWorld world){
+        ServerPlayerEntity player = world.getServer().getPlayerManager().getPlayer(this.prisoner.prisoner);
+        player.setSpawnPoint(world.getRegistryKey(), world.getSpawnPos(), 0, false, false);
+        this.prisoner = null;
+    }
+
+    public void resetImprisoned(){
+        this.prisoner = null;
     }
 }

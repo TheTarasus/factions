@@ -23,8 +23,8 @@ public class ItemActionResultMixin {
     @Inject(at = @At("HEAD"), method = "use", cancellable = true)
     public void use(World world, PlayerEntity user, Hand hand, CallbackInfoReturnable<TypedActionResult<ItemStack>> cir){
         BlockHitResult hit = ItemMixin.raycast(world, user, RaycastContext.FluidHandling.NONE);
-        ActionResult result = PlayerEvents.USE_BLOCK.invoker().onUseBlock(user, world, hand, hit);
         ItemStack stack = user.getStackInHand(hand);
+        ActionResult result = PlayerEvents.USE_ITEM.invoker().onUseItem(user, world, stack, hand);
         if(result == ActionResult.FAIL){
             InteractionsUtil.warn((ServerPlayerEntity) user, "use blocks");
             InteractionsUtil.sync(user, stack, hand);

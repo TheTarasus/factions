@@ -23,7 +23,7 @@ public class RankCommand implements Command {
         ServerCommandSource source = context.getSource();
         ServerPlayerEntity player = source.getPlayer();
 
-        if (target.getUuid().equals(player.getUuid())) {
+        if (target.getName().getString().equals(player.getName().getString())) {
             new Message("You cannot promote yourself").format(Formatting.RED).send(player, false);
 
             return 0;
@@ -35,7 +35,8 @@ public class RankCommand implements Command {
             if (users.getName().equals(target.getName().getString())) {
 
                 switch (users.rank) {
-                    case MEMBER -> users.rank = User.Rank.COMMANDER;
+                    case MEMBER -> users.rank = User.Rank.SHERIFF;
+                    case SHERIFF -> users.rank = User.Rank.COMMANDER;
                     case COMMANDER -> users.rank = User.Rank.LEADER;
                     case LEADER -> {
                         new Message("You cannot promote a Leader to Owner").format(Formatting.RED).send(player, false);
@@ -81,7 +82,13 @@ public class RankCommand implements Command {
                         new Message("You cannot demote a Member").format(Formatting.RED).send(player, false);
                         return 0;
                     }
-                    case COMMANDER -> user.rank = User.Rank.MEMBER;
+                    case SHERIFF -> user.rank = User.Rank.MEMBER;
+                    case COMMANDER -> {
+                        if(User.get(player.getName().getString()).rank == User.Rank.COMMANDER){
+                            new Message("You cannot demote your comrade!").format(Formatting.RED).send(player, false);
+                            return 0;
+                        }
+                    }
                     case LEADER -> {
                         if (User.get(player.getName().getString()).rank == User.Rank.LEADER) {
                             new Message("You cannot demote a fellow Co-Owner").format(Formatting.RED).send(player, false);
@@ -157,7 +164,7 @@ public class RankCommand implements Command {
             .then(
                 CommandManager
                 .literal("demote")
-                .requires(Requires.hasPerms("factions.rank.demote", 0))
+                .requires(Requires.hasPerms("factions.rank.demote", 0).and(Requires.isOwner()))
                 .then(
                     CommandManager.argument("player", EntityArgumentType.player())
                     .executes(this::demote)

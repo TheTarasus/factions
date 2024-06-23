@@ -2,10 +2,7 @@ package io.icker.factions.core;
 
 import io.icker.factions.FactionsMod;
 import io.icker.factions.api.events.PlayerEvents;
-import io.icker.factions.api.persistents.Claim;
-import io.icker.factions.api.persistents.Faction;
-import io.icker.factions.api.persistents.Relationship;
-import io.icker.factions.api.persistents.User;
+import io.icker.factions.api.persistents.*;
 import io.icker.factions.mixin.BucketItemMixin;
 import io.icker.factions.mixin.ItemMixin;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
@@ -81,6 +78,12 @@ public class InteractionManager {
             }
         }
 
+        if(!item.isFood()){
+            BlockHitResult raycastResult = ItemMixin.raycast(world, player, FluidHandling.NONE);
+            BlockPos raycastPos = raycastResult.getBlockPos();
+            return checkPermissions(player, raycastPos, world);
+        }
+
 
         return ActionResult.PASS;
     }
@@ -138,7 +141,7 @@ public class InteractionManager {
         }
 
         String dimension = world.getRegistryKey().getValue().toString();
-        ChunkPos chunkPosition = world.getChunk(position).getPos();
+        ChunkPos chunkPosition = new ChunkPos(position.getX()>>4, position.getZ()>>4);
 
         Claim claim = Claim.get(chunkPosition.x, chunkPosition.z, dimension);
         if (claim == null) return ActionResult.PASS;
@@ -148,12 +151,12 @@ public class InteractionManager {
         Faction claimFaction = claim.getFaction();
         Faction userFaction = user.getFaction();
 
+        Prisoner prisoner = user.getPrisoner(world.getServer());
+        if(prisoner != null) return ActionResult.FAIL;
+
         if (!user.isInFaction()) {
             return ActionResult.FAIL;
         }
-
-        int hours = new Date().getHours();
-
 
 
         if (claimFaction == userFaction) {

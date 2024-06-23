@@ -4,6 +4,8 @@ import io.icker.factions.FactionsMod;
 import io.icker.factions.api.events.FactionEvents;
 import io.icker.factions.api.events.PlayerEvents;
 import io.icker.factions.api.persistents.Faction;
+import io.icker.factions.api.persistents.Jail;
+import io.icker.factions.api.persistents.Prisoner;
 import io.icker.factions.api.persistents.User;
 import io.icker.factions.config.Config;
 import io.icker.factions.util.Message;
@@ -18,6 +20,7 @@ import net.minecraft.server.PlayerManager;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
+import net.minecraft.util.registry.RegistryKey;
 
 public class FactionsManager {
     public static PlayerManager playerManager;
@@ -28,7 +31,6 @@ public class FactionsManager {
         FactionEvents.MEMBER_JOIN.register(FactionsManager::memberChange);
         FactionEvents.MEMBER_LEAVE.register(FactionsManager::memberChange);
         PlayerEvents.ON_KILLED_BY_PLAYER.register(FactionsManager::playerDeath);
-        PlayerEvents.ON_POWER_TICK.register(FactionsManager::powerTick);
         PlayerEvents.OPEN_SAFE.register(FactionsManager::openSafe);
     }
 
@@ -52,12 +54,21 @@ public class FactionsManager {
 
     private static void playerDeath(ServerPlayerEntity player, DamageSource source) {
         User member = User.get(player.getName().getString());
-        if (!member.isInFaction()) return;
+        if(!(source.getAttacker() instanceof PlayerEntity))
+            return;
 
-        Faction faction = member.getFaction();
 
-        int adjusted = faction.adjustPower(-FactionsMod.CONFIG.POWER_DEATH_PENALTY);
-        new Message("%s lost %d power from dying", player.getName().getString(), adjusted).send(faction);
+        ServerPlayerEntity attacker = (ServerPlayerEntity) source.getAttacker();
+        User attackerUser = User.get(attacker.getName().getString());
+        if(!attackerUser.isInFaction()) return;
+
+        Faction faction = attackerUser.getFaction();
+        Jail jail = faction.jail;
+        if(jail == null) return;
+        boolean isCaught = member.setImprisoned(attacker.server.getOverworld(), faction, FactionsMod.CONFIG.MAX_HOURS_OF_DETENTION);
+        if(isCaught){
+            new Message("§c" + member.getName() + "§e, после избиения игроком: §c"+attackerUser.getName()+"§e, был заключён в тюрьму города §c" + faction.getName() +".").sendToGlobalChat();
+        }
     }
 
     private static void powerTick(ServerPlayerEntity player) {

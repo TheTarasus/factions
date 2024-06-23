@@ -7,16 +7,29 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 
 import io.icker.factions.api.persistents.Claim;
+import io.icker.factions.api.persistents.Empire;
 import io.icker.factions.api.persistents.Faction;
 import io.icker.factions.api.persistents.User;
 import io.icker.factions.util.Command;
+import io.icker.factions.util.DynmapBannerGenerator;
 import io.icker.factions.util.Message;
+import net.minecraft.block.entity.BannerPattern;
 import net.minecraft.command.argument.ColorArgumentType;
+import net.minecraft.item.BannerItem;
+import net.minecraft.item.BlockItem;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtList;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.util.DyeColor;
 import net.minecraft.util.Formatting;
 import net.minecraft.world.World;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ModifyCommand implements Command {
     private int name(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
@@ -31,7 +44,6 @@ public class ModifyCommand implements Command {
         }
 
         Faction faction = User.get(player.getName().getString()).getFaction();
-
         faction.setName(name);
         new Message("Successfully renamed faction to '" + name + "'")
             .prependFaction(faction)
@@ -39,6 +51,8 @@ public class ModifyCommand implements Command {
 
         return 1;
     }
+
+
 
     private int description(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
         String description = StringArgumentType.getString(context, "description");
@@ -97,6 +111,7 @@ public class ModifyCommand implements Command {
 
         faction.setAdmin(admin);
         new Message("Successfully updated adminpower to faction: " + Formatting.UNDERLINE + name).send(player, false);
+
         return 0;
     }
 
@@ -186,7 +201,109 @@ public class ModifyCommand implements Command {
                                 )
                         )
                 )
+                .then(
+                        CommandManager.literal("banner")
+                                .then(
+                                        CommandManager.literal("empire").requires(Requires.isEmperor()).executes(this::empireBanner)
+                                )
+                                .then(
+                                        CommandManager.literal("regional").requires(Requires.isLeader()).executes(this::regionalBanner)
+                                )
+                )
                 .build();
+    }
+
+    private int regionalBanner(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+
+        ServerPlayerEntity player = context.getSource().getPlayer();
+        if(player == null){
+            new Message("You must be a player to execute this command!").fail();
+            return 0;
+        }
+
+        ItemStack stack = player.getMainHandStack();
+        if(!(stack.getItem() instanceof BannerItem)){
+            new Message("§cТы должен держать флаг(баннер) в ведущей(правой) руке!").fail().send(player, false);
+            return 0;
+        }
+        List<String> arguments = new ArrayList<>();
+        NbtCompound nbtCompound = BlockItem.getBlockEntityNbt(stack);
+
+        DyeColor baseColor = ((BannerItem)stack.getItem()).getColor();
+        arguments.add(Integer.toString(DynmapBannerGenerator.MinecraftColor.getByName(baseColor.getName())));
+        arguments.add("base");
+
+        if (nbtCompound != null && nbtCompound.contains("Patterns")) {
+            NbtList nbtList = nbtCompound.getList("Patterns", 10);
+
+            for(int i = 0; i < nbtList.size() && i < 6; ++i) {
+                NbtCompound nbtCompound2 = nbtList.getCompound(i);
+                DyeColor dyeColor = DyeColor.byId(nbtCompound2.getInt("Color"));
+                BannerPattern bannerPattern = BannerPattern.byId(nbtCompound2.getString("Pattern"));
+                if (bannerPattern != null) {
+                    int rgb = DynmapBannerGenerator.MinecraftColor.getByName(dyeColor.getName());
+
+                    arguments.add(Integer.toString(rgb));
+                    arguments.add(bannerPattern.getName());
+                }
+            }
+
+        }
+        User user = User.get(player.getName().getString());
+        Faction faction = user.getFaction();
+
+        DynmapBannerGenerator.FrameType type = faction.isAdmin() ? DynmapBannerGenerator.FrameType.ADMIN : DynmapBannerGenerator.FrameType.MINOR;
+
+        File regionalBannerFile = DynmapBannerGenerator.generate(arguments, faction.getID(), type);
+        faction.setRegionBannerLocation(regionalBannerFile);
+
+        new Message("§" + faction.getColor() + "["+ faction.getName() +"]:§aГосударственный флаг вашего города обновился!").sendToFactionChat(faction);
+        return 1;
+
+    }
+
+    private int empireBanner(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+        ServerPlayerEntity player = context.getSource().getPlayer();
+        if(player == null){
+            new Message("You must be a player to execute this command!").fail();
+            return 0;
+        }
+
+        ItemStack stack = player.getMainHandStack();
+        if(!(stack.getItem() instanceof BannerItem)){
+            new Message("§cТы должен держать флаг(баннер) в ведущей(правой) руке!").fail().send(player, false);
+            return 0;
+        }
+        List<String> arguments = new ArrayList<>();
+        NbtCompound nbtCompound = BlockItem.getBlockEntityNbt(stack);
+        DyeColor baseColor = ((BannerItem)stack.getItem()).getColor();
+        arguments.add(Integer.toString(DynmapBannerGenerator.MinecraftColor.getByName(baseColor.getName())));
+        arguments.add("base");
+
+        if (nbtCompound != null && nbtCompound.contains("Patterns")) {
+            NbtList nbtList = nbtCompound.getList("Patterns", 10);
+
+            for(int i = 0; i < nbtList.size() && i < 6; ++i) {
+                NbtCompound nbtCompound2 = nbtList.getCompound(i);
+                DyeColor dyeColor = DyeColor.byId(nbtCompound2.getInt("Color"));
+                BannerPattern bannerPattern = BannerPattern.byId(nbtCompound2.getString("Pattern"));
+                if (bannerPattern != null) {
+                    int rgb = DynmapBannerGenerator.MinecraftColor.getByName(dyeColor.getName());
+
+                    arguments.add(Integer.toString(rgb));
+                    arguments.add(bannerPattern.getName());
+                }
+            }
+
+        }
+        Empire empire = Empire.getEmpireByFaction(User.get(player.getName().getString()).getFaction().getID());
+        File metropolyBannerFile = DynmapBannerGenerator.generate(arguments, empire.id, DynmapBannerGenerator.FrameType.METROPOLY);
+        File vassalBannerFile = DynmapBannerGenerator.generate(arguments, empire.id, DynmapBannerGenerator.FrameType.VASSAL);
+        empire.setEmpireFlags(metropolyBannerFile, vassalBannerFile);
+
+
+        new Message("§" + empire.getColor() + "["+ empire.name +"]:§5Государственный флаг вашей империи обновился!").sendToEmpireChat(empire);
+        return 1;
     }
 
     private int createCompat(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
@@ -213,6 +330,7 @@ public class ModifyCommand implements Command {
             return 1;
         }
         claim.create = create;
+        new Message("The chunk (" + claim.x + ", " + claim.z + ") is now compatible with Create!");
         return 0;
     }
 }

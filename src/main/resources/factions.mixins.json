@@ -3,7 +3,7 @@
   "minVersion": "0.8",
   "package": "io.icker.factions.mixin",
   "compatibilityLevel": "JAVA_17",
-  "mixins": [
+  "server": [
     "BlockBreakingKineticBlockEntityMixin",
     "BlockBreakingMovementBehaviourMixin",
     "BlockMixin",
@@ -17,6 +17,7 @@
     "CreateKineticBlockEntityMixin",
     "DeployerBlockEntityMixin",
     "EnderChestBlockMixin",
+    "EntityBorderMixin",
     "ExplosionMixin",
     "ItemActionResultMixin",
     "ItemMixin",
@@ -26,7 +27,8 @@
     "SchematicannonMixin",
     "ServerPlayerEntityMixin",
     "ServerPlayerInteractionManagerMixin",
-    "ServerPlayNetworkHandlerMixin"
+    "ServerPlayNetworkHandlerMixin",
+    "VSShipMixinAssembler"
   ],
   "injectors": {
     "defaultRequire": 1

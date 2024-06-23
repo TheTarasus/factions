@@ -1,5 +1,6 @@
 package io.icker.factions.util;
 
+import io.icker.factions.api.persistents.Empire;
 import io.icker.factions.api.persistents.Faction;
 import io.icker.factions.api.persistents.User;
 import net.minecraft.entity.player.PlayerEntity;
@@ -10,6 +11,8 @@ import net.minecraft.text.HoverEvent;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
+
+import java.util.UUID;
 
 public class Message {
     public static PlayerManager manager;
@@ -86,6 +89,14 @@ public class Message {
                 player.sendMessage(text, false);
             }
         }
+    }
+
+    public void sendToEmpireChat(Empire empire) {
+        for(UUID vassalID : empire.getVassalsIDList()){
+            Faction vassal = Faction.get(vassalID);
+            sendToFactionChat(vassal);
+        }
+        sendToFactionChat(Faction.get(empire.metropolyID));
     }
 
     public Message prependFaction(Faction faction) {

@@ -1,17 +1,9 @@
 package io.icker.factions.api.persistents;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.UUID;
-
 import io.icker.factions.FactionsMod;
 import io.icker.factions.api.events.FactionEvents;
-import io.icker.factions.core.ChatManager;
+import io.icker.factions.api.persistents.wargoals.GenericWarGoal;
 import io.icker.factions.core.FactionsManager;
-import io.icker.factions.core.ServerManager;
-import io.icker.factions.core.WorldManager;
 import io.icker.factions.database.Database;
 import io.icker.factions.database.Field;
 import io.icker.factions.database.Name;
@@ -22,13 +14,16 @@ import net.minecraft.util.Formatting;
 import net.minecraft.util.Util;
 import net.minecraft.util.math.BlockPos;
 
+import javax.annotation.Nullable;
+import java.io.File;
+import java.util.*;
+
 @Name("Faction")
-public class Faction {
+public class Faction implements StateTypeable{
     private static final HashMap<UUID, Faction> STORE = Database.load(Faction.class, Faction::getID);
 
     @Field("ID")
     private UUID id;
-
     @Field("Name")
     private String name;
 
@@ -53,6 +48,9 @@ public class Faction {
     @Field("Home")
     private Home home;
 
+    @Field("Jail")
+    public Jail jail;
+
     @Field("Invites")
     public ArrayList<String> invites = new ArrayList<String>();
 
@@ -62,7 +60,51 @@ public class Faction {
     @Field("relationsLastUpdate")
     public long relationsLastUpdate;
 
-    public Faction(String name, String description, String motd, Formatting color, boolean open, int power, boolean admin, long relationsLastUpdate) {
+
+    @Field("regionBannerLocation")
+    private String regionBannerLocation = FactionsMod.ANCOM_BANNER.toString();
+
+    public String getRegionBannerLocation(){
+        return this.regionBannerLocation;
+    }
+
+    @Field("empireBannerLocation")
+    private String empireBannerLocation = FactionsMod.ANCOM_BANNER.toString();
+
+    @Field("capitulationPoints")
+    public int capitulationPoints = 0;
+
+    @Field("isCapitulated")
+    private boolean isCapitulated = false;
+
+    public boolean getCapitulated(){
+        return this.isCapitulated;
+    }
+
+    public void setCapitulated(boolean isCapitulated){
+        this.isCapitulated = isCapitulated;
+        if(isCapitulated) warGoalListener.destroy(this);
+    }
+    public int capitulationLimit;
+
+    private WarGoal goal;
+    public GenericWarGoal warGoalListener;
+
+    public void setEmpireBannerLocation(File file){
+        this.empireBannerLocation = file.toString();
+        FactionEvents.BANNER_UPDATE.invoker().onBannerUpdate(this);
+    }
+
+
+    public void setRegionBannerLocation(File file){
+        this.regionBannerLocation = file.toString();
+        FactionEvents.BANNER_UPDATE.invoker().onBannerUpdate(this);
+    }
+    public String getEmpireBannerLocation(){
+        return this.empireBannerLocation;
+    }
+
+    public Faction(String name, String description, String motd, Formatting color, boolean open, int power, boolean admin, long relationsLastUpdate, Jail jail, String empireBannerLocation, String regionBannerLocation, int capitulationPoints, boolean isCapitulated) {
         this.id = UUID.randomUUID();
         this.name = name;
         this.motd = motd;
@@ -74,6 +116,44 @@ public class Faction {
         Safe safe = new Safe(name);
         Safe.add(safe);
         this.relationsLastUpdate = relationsLastUpdate;
+        this.jail = jail;
+        this.empireBannerLocation = empireBannerLocation == null ? FactionsMod.ANCOM_BANNER.toString() : empireBannerLocation;
+        this.regionBannerLocation = regionBannerLocation == null ? FactionsMod.ANCOM_BANNER.toString() : regionBannerLocation;
+        this.capitulationLimit = (int) Math.sqrt((double) this.getClaims().size()) * this.getUsers().size();
+        this.capitulationLimit *= this.getStateType() == WarGoal.StateType.EMPIRE ? 1 + (this.findAllUsersOfEmpire().size() / 25) : 1;
+        this.capitulationLimit = this.isAdmin() ? Integer.MAX_VALUE : this.capitulationLimit;
+        this.capitulationPoints = capitulationPoints;
+        this.isCapitulated = this.capitulationPoints > capitulationLimit;
+        this.goal = WarGoal.activeWarWithState(this.getCapitalState());
+    }
+
+    public void payWarTaxes(){
+        WarGoal goal = this.getActiveWargoal();
+        if(goal == null) return;
+
+        float cost = goal.isAgressor(this) ? goal.cost : goal.reverseCost;
+        if(Float.isInfinite(cost) || Float.isNaN(cost)) cost = 0.5f;
+        switch (this.getStateType()){
+            case EMPIRE -> cost *= 5;
+            case VASSAL -> cost *= 2;
+            case FREE_STATE -> cost *=3;
+        }
+        cost += 1;
+
+        this.adjustPower((int)-cost);
+    }
+
+    public void adjustCapitulationPoints(int points){
+        if(this.getActiveWargoal() == null){
+            this.isCapitulated = false;
+            this.capitulationPoints = 0;
+            return;
+        }
+        this.capitulationPoints += points;
+        WarGoal goal = this.getActiveWargoal();
+        if(this.capitulationPoints > this.capitulationLimit) {
+            this.isCapitulated = true;
+        }
     }
 
     public Faction() { ; }
@@ -146,6 +226,7 @@ public class Faction {
     }
 
     public void setName(String name) {
+        Safe.getSafe(name).factionName = name;
         this.name = name;
         FactionEvents.MODIFY.invoker().onModify(this);
     }
@@ -176,6 +257,7 @@ public class Faction {
 
     public void setAdmin(boolean admin){
         this.admin = admin;
+        FactionEvents.MODIFY.invoker().onModify(this);
     }
 
     public int adjustPower(int adjustment) {
@@ -203,8 +285,7 @@ public class Faction {
 
     public void removeAllClaims() {
         Claim.getByFaction(id)
-            .stream()
-            .forEach(c -> c.remove());
+            .forEach(Claim::remove);
         FactionEvents.REMOVE_ALL_CLAIMS.invoker().onRemoveAllClaims(this);
     }
 
@@ -230,7 +311,7 @@ public class Faction {
                         claim.outpost.index == index).findFirst().get();
         Claim.Outpost pos = null;
         if(origin != null) pos = origin.outpost;
-        pos = pos == null ? new Claim.Outpost((int)home.x>>4, (int)home.z>>4,new BlockPos(home.x, home.y, home.z), 0, home.level) : pos;
+        pos = pos == null ? new Claim.Outpost((int) home.x >> 4, (int) home.z >> 4, new BlockPos(home.x, home.y, home.z), 0, home.level) : pos;
         return pos;
     }
 
@@ -244,6 +325,7 @@ public class Faction {
     }
 
     public Relationship getRelationship(UUID target) {
+        if(Empire.isAnyVassal(this.id)) return null;
         return relationships.stream().filter(rel -> rel.target.equals(target)).findFirst().orElse(new Relationship(target, 0));
     }
 
@@ -282,13 +364,20 @@ public class Faction {
 
     public void remove() {
         FactionsManager.playerManager.getServer().getPlayerManager().broadcast(
-                new LiteralText("§eThe §9" + this.name + " §efaction has been disbanded!"), MessageType.CHAT, Util.NIL_UUID
+                new LiteralText("§eГород §9" + this.name + " §eрасформирован!"), MessageType.CHAT, Util.NIL_UUID
         );
         for (User user : getUsers()) {
             user.leaveFaction();
         }
         removeAllClaims();
         Safe.getSafe(name).remove();
+
+        Empire empire = Empire.getEmpire(id);
+        if(empire != null) {
+            if(empire.metropolyID == this.id) {
+                empire.remove();
+            }
+        }
         STORE.remove(id);
         FactionEvents.DISBAND.invoker().onDisband(this);
 
@@ -296,5 +385,69 @@ public class Faction {
 
     public static void save() {
         Database.save(Faction.class, STORE.values().stream().toList());
+    }
+
+    @Override
+    public WarGoal.StateType getStateType() {
+        Empire empire = Empire.getEmpireByFaction(this.id);
+        if(empire == null) return WarGoal.StateType.FREE_STATE;
+        return empire.isVassal(id) ? WarGoal.StateType.VASSAL : WarGoal.StateType.EMPIRE;
+    }
+
+    @Override
+    public Faction getCapitalState() {
+        WarGoal.StateType type = this.getStateType();
+        switch (type){
+            case VASSAL -> {
+                Empire empire = Empire.getEmpireByFaction(this.getID());
+                return Faction.get(empire.metropolyID);
+            }
+            default -> {
+                return this;
+            }
+        }
+    }
+
+    public void triggerPrisonerReleaseBeforeWar(StateTypeable faction){
+        WarGoal.StateType type = this.getStateType();
+        switch (type){
+            case VASSAL, EMPIRE -> {
+                Empire empire = Empire.getEmpireByFaction(this.getID());
+                empire.releaseAllPrisonersBeforeWar(faction);
+            }
+            default -> this.jail.releaseAllPrisonersBeforeWar(faction);
+        }
+    }
+
+    @Override
+    public List<User> findAllUsersOfEmpire() {
+        WarGoal.StateType type = this.getStateType();
+        switch (type){
+            case VASSAL, EMPIRE -> {
+                Empire empire = Empire.getEmpireByFaction(this.getID());
+                List<UUID> members = empire.getVassalsIDList();
+                members.add(empire.metropolyID);
+                List<User> users = new ArrayList<>();
+                for(UUID id : members){
+                    users.addAll(Faction.get(id).getUsers());
+                }
+                return users;
+            }
+            default -> {return this.getUsers();}
+        }
+    }
+
+    @Override
+    public WarGoal getActiveWargoal() {
+        return this.goal;
+    }
+
+    public void setActiveWargoal(@Nullable WarGoal goal){
+        if(goal == null){
+            this.warGoalListener = null;
+            return;
+        }
+        this.goal = goal;
+        this.warGoalListener = GenericWarGoal.getWargoal(goal.goalType);
     }
 }

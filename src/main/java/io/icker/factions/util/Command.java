@@ -4,13 +4,16 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import io.icker.factions.FactionsMod;
+import io.icker.factions.api.persistents.Empire;
 import io.icker.factions.api.persistents.Faction;
 import io.icker.factions.api.persistents.User;
+import io.icker.factions.api.persistents.WarGoal;
 import me.lucko.fabric.api.permissions.v0.Permissions;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 
+import java.util.Arrays;
 import java.util.function.Predicate;
 
 
@@ -35,6 +38,13 @@ public interface Command {
         public static Predicate<ServerCommandSource> isFactionless() {
             return require(user -> !user.isInFaction());
         }
+        public static Predicate<ServerCommandSource> isEmpireless() {
+            return require(user -> {
+                Faction faction = user.getFaction();
+                if(faction == null) return false;
+                return Empire.getEmpireByFaction(faction.getID()) == null;
+            });
+        }
 
         public static Predicate<ServerCommandSource> isMember() {
             return require(user -> user.isInFaction());
@@ -46,6 +56,17 @@ public interface Command {
 
         public static Predicate<ServerCommandSource> isLeader() {
             return require(user -> user.rank == User.Rank.LEADER || user.rank == User.Rank.OWNER);
+        }
+
+        public static Predicate<ServerCommandSource> isSheriff() {
+            return require(user -> user.rank == User.Rank.SHERIFF || user.rank == User.Rank.COMMANDER || user.rank == User.Rank.LEADER || user.rank == User.Rank.OWNER);
+        }
+
+        public static Predicate<ServerCommandSource> isEmperor(){
+            return require(user -> {
+                if (user.getFaction() == null) return false;
+                return (user.rank == User.Rank.OWNER || user.rank == User.Rank.LEADER) && Empire.isAnyMetropoly(user.getFaction().getID());
+            });
         }
 
         public static Predicate<ServerCommandSource> isOwner() {
@@ -90,6 +111,21 @@ public interface Command {
             );
         }
 
+        public static SuggestionProvider<ServerCommandSource> allWithNegativeRelations(){
+            return suggest(user ->
+                user.getFaction().getEnemiesWith().stream().map(r -> Faction.get(r.target).getCapitalState().getName())
+                        .toArray(String[]::new)
+            );
+        }
+
+        public static SuggestionProvider<ServerCommandSource> allWargoals(){
+            return suggest(user -> {
+                Faction source = user.getFaction();
+                return Arrays.stream(WarGoal.Type.values()).map(type -> type.name).toArray(String[]::new);
+            }
+            );
+        }
+
         public static SuggestionProvider<ServerCommandSource> openFactions() {
             return suggest(user ->
                 Faction.all()
@@ -99,6 +135,8 @@ public interface Command {
                     .toArray(String[]::new)
             );
         }
+
+
 
         public static SuggestionProvider<ServerCommandSource> openInvitedFactions() {
             return suggest(user ->

@@ -14,6 +14,7 @@ import com.mojang.brigadier.tree.LiteralCommandNode;
 import io.icker.factions.FactionsMod;
 import io.icker.factions.api.persistents.Claim;
 import io.icker.factions.api.persistents.Faction;
+import io.icker.factions.api.persistents.Home;
 import io.icker.factions.api.persistents.User;
 import io.icker.factions.util.Command;
 import io.icker.factions.util.Message;
@@ -94,7 +95,7 @@ public class ClaimCommand implements Command {
                 chunks.add(chunkPos);
             }
         }
-
+        if(faction.getHome() == null) faction.setHome(new Home(faction.getID(), player.getX(), player.getY(), player.getZ(), 0, 0, dimension));
         chunks.forEach(chunk -> faction.addClaim(chunk.x, chunk.z, dimension));
         if (size == 1) {
             new Message("Chunk (%d, %d) claimed by %s", chunks.get(0).x, chunks.get(0).z, player.getName().getString())
@@ -187,7 +188,7 @@ public class ClaimCommand implements Command {
             new Message("Not enough faction power to claim chunk").fail().send(player, false);
             return 0;
         }
-        faction.adjustPower(requiredPower);
+        faction.adjustPower(-requiredPower);
         return addForced(context, 1);
     }
 

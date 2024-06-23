@@ -1,5 +1,6 @@
 package io.icker.factions.api.events;
 
+import io.icker.factions.api.persistents.Empire;
 import io.icker.factions.api.persistents.Faction;
 import io.icker.factions.api.persistents.Home;
 import io.icker.factions.api.persistents.User;
@@ -18,6 +19,22 @@ public final class FactionEvents {
             callback.onCreate(faction, user);
         }
     });
+
+    public static final Event<UpdateAllEmpire> UPDATE_ALL_EMPIRE = EventFactory.createArrayBacked(UpdateAllEmpire.class, callbacks -> empire -> {
+        for (UpdateAllEmpire callback : callbacks){
+            callback.onUpdate(empire);
+        }
+    });
+
+    public static final Event<BannerUpdate> BANNER_UPDATE = EventFactory.createArrayBacked(BannerUpdate.class, callbacks -> (faction) -> {
+        for(BannerUpdate callback : callbacks)
+            callback.onBannerUpdate(faction);
+    });
+
+    public static final Event<EmpireBannerUpdate> EMPIRE_BANNER_UPDATE = EventFactory.createArrayBacked(EmpireBannerUpdate.class, callbacks -> (empire -> {
+        for(EmpireBannerUpdate callback : callbacks)
+            callback.onEmpireBannerUpdate(empire);
+    }));
 
     /**
      * Called when a {@link Faction} is disbanded
@@ -122,5 +139,20 @@ public final class FactionEvents {
     @FunctionalInterface
     public interface RemoveAllClaims {
         void onRemoveAllClaims(Faction faction);
+    }
+
+    @FunctionalInterface
+    public interface BannerUpdate {
+        void onBannerUpdate(Faction faction);
+    }
+
+    @FunctionalInterface
+    public interface EmpireBannerUpdate {
+        void onEmpireBannerUpdate(Empire empire);
+    }
+
+    @FunctionalInterface
+    public interface UpdateAllEmpire {
+        void onUpdate(Empire empire);
     }
 }

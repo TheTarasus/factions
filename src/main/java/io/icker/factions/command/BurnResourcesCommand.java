@@ -28,7 +28,7 @@ public class BurnResourcesCommand implements Command {
         ItemStack itemStack = player.getMainHandStack();
         boolean isDiamond = itemStack.isOf(Items.DIAMOND);
         if(!isDiamond) {
-            player.sendMessage(new LiteralText("§cYou don't have any diamonds in main hand!"), MessageType.CHAT, Util.NIL_UUID);
+            player.sendMessage(new LiteralText("§cУ вас нету алмазов в руках!"), MessageType.CHAT, Util.NIL_UUID);
             return 0;
         }
         User user = User.get(player.getName().getString());
@@ -36,7 +36,7 @@ public class BurnResourcesCommand implements Command {
         int wallet = itemStack.getCount()*FactionsMod.CONFIG.DIAMOND_CURRENCY;
         itemStack.setCount(0);
         faction.adjustPower(wallet);
-        player.sendMessage(new LiteralText("§aAdded "+wallet+" power to the " + faction.getName() + " Faction"), MessageType.CHAT, Util.NIL_UUID);
+        player.sendMessage(new LiteralText("§aДобавлено "+wallet+" ₽ в казну вашего города"), MessageType.CHAT, Util.NIL_UUID);
         return 1;
     }
 }

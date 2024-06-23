@@ -32,7 +32,7 @@ public class LeaveCommand implements Command {
         if (faction.getUsers().size() == 0) {
             faction.remove();
         } else {
-            faction.adjustPower(-FactionsMod.CONFIG.MEMBER_POWER);
+            //faction.adjustPower(-FactionsMod.CONFIG.MEMBER_POWER);
         }
 
         return 1;

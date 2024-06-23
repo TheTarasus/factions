@@ -73,10 +73,10 @@ public class Config {
     public int VERSION = REQUIRED_VERSION;
 
     @SerializedName("basePower")
-    public int BASE_POWER = 20;
+    public int BASE_POWER = 0;
 
     @SerializedName("memberPower")
-    public int MEMBER_POWER = 20;
+    public int MEMBER_POWER = 0;
     
     @SerializedName("claimWeight")
     public int CLAIM_WEIGHT = 5;
@@ -157,4 +157,26 @@ public class Config {
 
     @SerializedName("hoursBeforeNextFabricate")
     public long HOURS_BEFORE_NEXT_FABRICATE = 12;
+
+    @SerializedName("maxHoursOfDetention")
+    public int MAX_HOURS_OF_DETENTION = 72;
+
+    @SerializedName("jailCreationPayment")
+    public int JAIL_CREATION_PAYMENT = 512;
+
+    @SerializedName("earthBordersEnabled")
+    public boolean EARTH_BORDERS_ENABLED = true;
+
+    @SerializedName("earthMaxX")
+    public int EARTH_MAX_X = 4096;
+    @SerializedName("earthMaxZ")
+    public int EARTH_MAX_Z = 2048;
+
+    @SerializedName("earthMinX")
+    public int EARTH_MIN_X = -4096;
+    @SerializedName("earthMinZ")
+    public int EARTH_MIN_Z = -2048;
+
+    @SerializedName("powerToCreateEmpire")
+    public int POWER_TO_CREATE_EMPIRE = 1024;
 }

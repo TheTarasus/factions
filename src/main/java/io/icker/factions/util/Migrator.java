@@ -6,14 +6,12 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import io.icker.factions.FactionsMod;
-import io.icker.factions.api.persistents.Claim;
-import io.icker.factions.api.persistents.Faction;
-import io.icker.factions.api.persistents.Home;
-import io.icker.factions.api.persistents.Relationship;
-import io.icker.factions.api.persistents.User;
+import io.icker.factions.api.persistents.*;
 import net.minecraft.util.Formatting;
 
 public class Migrator {
@@ -30,10 +28,27 @@ public class Migrator {
     private static void moveData() {
         try {
             con = DriverManager.getConnection("jdbc:h2:./factions/factions");
+            Query emperorLocalizationQuery = new Query("SELECT * FROM EmperorLocalization;").executeQuery();
+            while (emperorLocalizationQuery.next()){
+                EmperorLocalization localization = new EmperorLocalization(emperorLocalizationQuery.getUUID("ID"), emperorLocalizationQuery.getString("localeForEmperorMainTitle"), emperorLocalizationQuery.getString("localeForEmperorTitleHandlers"));
+                EmperorLocalization.add(localization);
+            }
+
+            Query warGoalsQuery = new Query("SELECT * FROM WarGoal;").executeQuery();
+            while (warGoalsQuery.next()){
+                WarGoal warGoal = new WarGoal(warGoalsQuery.getWGStateWithType("Agressor"), warGoalsQuery.getWGStateWithType("Victim"), warGoalsQuery.getWGType("GoalType"), warGoalsQuery.getUUID("ID"), warGoalsQuery.getLong("timeOfWarEnd"), warGoalsQuery.getLong("timeOfWarStarted"));
+                WarGoal.add(warGoal);
+            }
+
+            Query empireQuery = new Query("SELECT * FROM Empire;").executeQuery();
+            while (empireQuery.next()) {
+                Empire empire = new Empire(empireQuery.getUUID("ID"), empireQuery.getUUID("metropolyID"), empireQuery.getListUUID("metropolyID"), empireQuery.getString("Name"), empireQuery.getString("metropolyBannerLocation"), empireQuery.getString("vassalBannerLocation"), Formatting.byName(empireQuery.getString("color")));
+                Empire.add(empire);
+            }
 
             Query query = new Query("SELECT * FROM Faction;").executeQuery();
             while (query.next()) {
-                Faction faction = new Faction(query.getString("name"), query.getString("description"), "No faction MOTD set", Formatting.byName(query.getString("color")), query.getBool("open"), query.getInt("power"), query.getBool("admin"), query.getLong("relationsLastUpdate"));
+                Faction faction = new Faction(query.getString("name"), query.getString("description"), "No faction MOTD set", Formatting.byName(query.getString("color")), query.getBool("open"), query.getInt("power"), query.getBool("admin"), query.getLong("relationsLastUpdate"), query.getJail("Jail"), query.getString("empireBannerLocation"), query.getString("regionBannerLocation"), query.getInt("capitulationPoints"), query.getBool("isCapitulated"));
                 Faction.add(faction);
 
                 Query homeQuery = new Query("SELECT * FROM Home WHERE faction = ?;").set(faction.getName()).executeQuery();
@@ -163,6 +178,14 @@ public class Migrator {
             return this;
         }
 
+        public ArrayList<UUID> getListUUID(String columnName){
+            try {
+                return result.getObject(columnName, new ArrayList<UUID>().getClass());
+            } catch (SQLException e) {
+                error(e);
+            }
+            return null;
+        }
         public String getString(String columnName) {
             try {
                 return result.getString(columnName);
@@ -189,6 +212,33 @@ public class Migrator {
             }
             return null;
         }
+
+        public WarGoal.StateWithType getWGStateWithType(String columnName) {
+            try {
+                return result.getObject(columnName, WarGoal.StateWithType.class);
+            } catch (SQLException e) {
+                error(e);
+            }
+            return null;
+        }
+
+        public WarGoal.Type getWGType(String columnName) {
+            try {
+                return result.getObject(columnName, WarGoal.Type.class);
+            } catch (SQLException e) {
+                error(e);
+            }
+            return null;
+        }
+
+        public Jail getJail(String columnName){
+            try {
+            return result.getObject(columnName, Jail.class);
+        } catch (SQLException e) {
+            error(e);
+        }
+            return null;
+    }
 
         public int getInt(String columnName) {
             try {

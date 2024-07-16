@@ -29,9 +29,10 @@ public class Jail {
     public String level;
 
     @Field("Prisoners")
-    public ArrayList<Prisoner> prisoners = new ArrayList<>();
+    private ArrayList<Prisoner> prisoners = new ArrayList<>();
 
-    private UUID factionID;
+    @Field("UUID")
+    public UUID factionID;
 
     public Jail(UUID factionID, double x, double y, double z, float yaw, float pitch, String level, ArrayList<Prisoner> prisoners) {
         this.factionID = factionID;
@@ -41,11 +42,12 @@ public class Jail {
         this.yaw = yaw;
         this.pitch = pitch;
         this.level = level;
-        this.prisoners = prisoners;
+        this.setPrisoners(prisoners);
     }
 
     public void releaseAllPrisonersBeforeWar(StateTypeable targetState){
-        List<Prisoner> targetPrisoners = prisoners.stream().filter(p -> {
+        if(this.factionID == null) return;
+        List<Prisoner> targetPrisoners = getPrisoners().stream().filter(p -> {
             User user = User.get(p.prisoner);
             StateTypeable typeable = user.getFaction();
             if(typeable == null) return false;
@@ -71,36 +73,40 @@ public class Jail {
     }
     
     public void updateWarPunishment(){
-        this.prisoners.forEach(prisoner -> {
+        if(this.factionID == null) return;
+        this.getPrisoners().forEach(prisoner -> {
             User user = User.get(prisoner.prisoner);
             Faction faction = user.getFaction();
             if(faction == null) return;
             if(faction.getID().equals(this.factionID)) return;
             Faction prisonerCapital = faction.getCapitalState();
-            Faction sourceFaction = Faction.get(this.factionID);
+            Faction sourceFaction = getFaction();
             Faction sourceCapital = sourceFaction.getCapitalState();
             UUID sourceCapitalID = sourceCapital.getID();
 
-            float multuplier = 1;
-            switch (user.rank){
-                case OWNER -> multuplier        += 8;
-                case LEADER -> multuplier       += 7;
-                case COMMANDER -> multuplier    += 6;
-                case SHERIFF -> multuplier      += 5;
-                default -> multuplier           += 1;
-            }
-
+            float multuplier = switch (user.getRank()) {
+                case OWNER -> prisonerCapital.getID().equals(faction.getID()) ? 100 : 12;
+                case LEADER -> 9;
+                case COMMANDER -> 5;
+                case SHERIFF -> 3;
+                default -> 1;
+            };
 
 
             WarGoal goal = WarGoal.findByAnyStates(sourceCapital, prisonerCapital);
             if(goal == null) return;
-            boolean sourceIsAgressors = goal.agressor.id.equals(sourceCapitalID);
-            float punishAmount = sourceIsAgressors ? goal.cost : goal.reverseCost;
-            multuplier *= punishAmount;
-            multuplier *= sourceIsAgressors ? 1 : -1;
 
             faction.adjustCapitulationPoints((int)multuplier);
 
         });
+    }
+
+    public ArrayList<Prisoner> getPrisoners() {
+        return prisoners;
+    }
+
+    public void setPrisoners(ArrayList<Prisoner> prisoners) {
+        if(this.factionID == null) return;
+        this.prisoners = prisoners;
     }
 }

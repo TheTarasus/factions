@@ -1,8 +1,6 @@
 package io.icker.factions.mixin;
 
-import com.simibubi.create.content.contraptions.Contraption;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
-import com.simibubi.create.content.kinetics.base.KineticEffectHandler;
 import com.simibubi.create.content.schematics.requirement.ISpecialBlockEntityItemRequirement;
 import com.simibubi.create.foundation.blockEntity.CachedRenderBBBlockEntity;
 import com.simibubi.create.foundation.utility.IInteractionChecker;
@@ -12,7 +10,6 @@ import io.icker.factions.api.persistents.Claim;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -40,6 +37,6 @@ public abstract class CreateKineticBlockEntityMixin extends CachedRenderBBBlockE
         String dimension = world.getRegistryKey().getValue().toString();
         Claim claim = Claim.get(source.getX()>>4, source.getZ()>>4, dimension);
         if(claim == null) return;
-        if(!claim.create) {this.overStressed = true;}
+        if(!claim.isCreate()) {this.overStressed = true;}
     }
 }

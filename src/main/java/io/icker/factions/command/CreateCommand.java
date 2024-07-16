@@ -14,6 +14,7 @@ import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Formatting;
+import net.minecraft.util.Util;
 
 import java.util.UUID;
 
@@ -33,7 +34,8 @@ public class CreateCommand implements Command {
             new Message("Невозможно создать город: Название занято!").fail().send(player, false);
             return 0;
         }
-        Faction faction = new Faction(name, "(Нет описания)", "(Нет статуса)", Formatting.WHITE, false, FactionsMod.CONFIG.BASE_POWER + FactionsMod.CONFIG.MEMBER_POWER, false, 0, new Jail(), FactionsMod.ANCOM_BANNER.toString(), FactionsMod.ANCOM_BANNER.toString(), 0, false);
+
+        Faction faction = new Faction(UUID.randomUUID(), name, "(Нет описания)", "(Нет статуса)", Formatting.WHITE, false, FactionsMod.CONFIG.BASE_POWER + FactionsMod.CONFIG.MEMBER_POWER, false, 0, null, FactionsMod.ANCOM_BANNER.toString(), FactionsMod.ANCOM_BANNER.toString(), 0, false, Util.NIL_UUID, -1);
         Faction.add(faction);
         User.get(player.getName().getString()).joinFaction(faction.getID(), User.Rank.OWNER);
 
@@ -85,6 +87,7 @@ public class CreateCommand implements Command {
         Empire.add(empire);
         EmperorLocalization emperorLocalization = new EmperorLocalization(empire.getID(), null, null);
         EmperorLocalization.add(emperorLocalization);
+        faction.removeNulledRelationships();
         FactionEvents.UPDATE_ALL_EMPIRE.invoker().onUpdate(empire);
 
         new Message("§4§lCourt§aOf§6§lRasus §r§6встречает расцвет новой империи: на карте появилось государство \"§5"+ name +"\"").sendToGlobalChat();

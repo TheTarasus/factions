@@ -38,7 +38,7 @@ public abstract class DeployerBlockEntityMixin extends KineticBlockEntity implem
         String dimension = world.getRegistryKey().getValue().toString();
         Claim claim = Claim.get(clickedPos.getX()>>4, clickedPos.getZ()>>4, dimension);
         if(claim == null) return;
-        if(!claim.create) ci.cancel();
+        if(!claim.isCreate()) ci.cancel();
     }
 
 }

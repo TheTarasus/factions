@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.UUID;
 import java.util.function.Function;
 
+import io.icker.factions.api.persistents.WarGoal;
 import org.apache.commons.lang3.ArrayUtils;
 
 import io.icker.factions.api.persistents.Relationship.Status;
@@ -58,6 +59,7 @@ public class SerializerRegistry {
         registry.put(SoundMode.class, createEnumSerializer(SoundMode.class));
         registry.put(Rank.class, createEnumSerializer(Rank.class));
         registry.put(Status.class, createEnumSerializer(Status.class));
+        registry.put(WarGoal.Type.class, createEnumSerializer(WarGoal.Type.class));
     }
 
     public static boolean contains(Class<?> clazz) {

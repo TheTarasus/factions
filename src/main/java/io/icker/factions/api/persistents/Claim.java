@@ -27,17 +27,21 @@ public class Claim {
     public UUID factionID;
 
     @Field("create")
-    public boolean create;
+    private boolean create;
 
     @Field("outpost")
     public Outpost outpost;
+
+    public boolean dotational;
 
     public Claim(int x, int z, String level, UUID factionID, boolean create, Outpost outpost) {
         this.x = x;
         this.z = z;
         this.level = level;
         this.factionID = factionID;
-        this.create = create;
+        Faction faction = Faction.get(factionID);
+        this.dotational = faction.getCapitalState().getDotations(faction) >= 0;
+        this.setCreate(dotational || create);
         this.outpost = outpost;
     }
 
@@ -78,6 +82,14 @@ public class Claim {
 
     public static void save() {
         Database.save(Claim.class, STORE.values().stream().toList());
+    }
+
+    public boolean isCreate() {
+        return create;
+    }
+
+    public void setCreate(boolean create) {
+        this.create = create || dotational;
     }
 
     public static class Outpost {

@@ -12,7 +12,7 @@ public class AnnexWarGoal extends BaseWarGoal{
         super(isVassalAggressor);
     }
 
-    AnnexWarGoal(){;}
+    public AnnexWarGoal(){;}
 
     @Override
     public boolean isPrimitive() {
@@ -62,8 +62,8 @@ public class AnnexWarGoal extends BaseWarGoal{
     }
 
     public void annex(StateTypeable aggressor, StateTypeable victim){
-        aggressor.getActiveWargoal().remove();
-        victim.getActiveWargoal().remove();
+        if(null != victim.getActiveWargoal()) victim.getActiveWargoal().remove();
+        if(null != aggressor.getActiveWargoal()) aggressor.getActiveWargoal().remove();
 
         List<Claim> claims = victim.getCapitalState().getClaims();
         Faction victor = aggressor.getCapitalState();
@@ -79,7 +79,12 @@ public class AnnexWarGoal extends BaseWarGoal{
         int power = victim.getCapitalState().getPower();
         victor.adjustPower(power);
         new Message("§aГосударство §6" + victor.getName() + "§a аннексировало вольный город §6" + victim.getCapitalState().getName() + "§a, и присвоило себе все его богатства.").sendToGlobalChat();
-        victim.getCapitalState().remove();
+        if(victim.getStateType() != WarGoal.StateType.EMPIRE) {
+            ((Faction)victim).remove();
+        } else {
+            victim.getCapitalState().remove();
+        }
+
         stopTheWar(aggressor.getActiveWargoal());
     }
 

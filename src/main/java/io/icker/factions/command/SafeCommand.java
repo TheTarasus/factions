@@ -24,7 +24,7 @@ public class SafeCommand implements Command {
             .requires(
                 Requires.multiple(
                     Requires.hasPerms("faction.safe", 1),
-                    Requires.isMember(),
+                    Requires.isCommander(),
                     s -> FactionsMod.CONFIG.FACTION_SAFE == Config.SafeOptions.COMMAND || FactionsMod.CONFIG.FACTION_SAFE == Config.SafeOptions.ENABLED
                 )
             )

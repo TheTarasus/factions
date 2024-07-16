@@ -1,9 +1,11 @@
 package io.icker.factions.command;
 
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 
+import io.icker.factions.api.persistents.Empire;
 import io.icker.factions.api.persistents.Faction;
 import io.icker.factions.api.persistents.User;
 import io.icker.factions.util.Command;
@@ -35,7 +37,7 @@ public class KickCommand implements Command {
             return 0;
         }
 
-        if (selfUser.rank == User.Rank.LEADER && (targetUser.rank == User.Rank.LEADER || targetUser.rank == User.Rank.OWNER)) {
+        if (selfUser.getRank() == User.Rank.LEADER && (targetUser.getRank() == User.Rank.LEADER || targetUser.getRank() == User.Rank.OWNER)) {
             new Message("Cannot kick members with a higher of equivalent rank").format(Formatting.RED).send(player, false);
             return 0;
         }
@@ -56,6 +58,53 @@ public class KickCommand implements Command {
             .then(
                 CommandManager.argument("player", EntityArgumentType.player()).executes(this::run)
             )
+            .then(CommandManager.literal("vassal")
+                    .requires(Requires.isEmperor()))
+                .then(CommandManager.argument("vassalName", StringArgumentType.string()).suggests(Suggests.allVassals())
+                        .executes(this::kickVassal)
+                )
             .build();
+    }
+
+    private int kickVassal(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+        String target = StringArgumentType.getString(context, "vassalName");
+
+        ServerCommandSource source = context.getSource();
+        ServerPlayerEntity player = source.getPlayer();
+        Faction vassal = Faction.getByName(target);
+        User user = User.get(player.getName().getString());
+        Faction sourceFaction = user.getFaction();
+
+        if(sourceFaction == null){
+            new Message("§cОШИБКА! Твой город не найден!").send(player, false);
+            return 0;
+        }
+
+        if(vassal == null){
+            new Message("§cОШИБКА! Вассал не найден!").send(player, false);
+            return 0;
+        }
+
+        if (vassal.getID().equals(sourceFaction.getID())) {
+            new Message("§cНевозможно кикнуть свою же столицу!").format(Formatting.RED).send(player, false);
+            return 0;
+        }
+
+        Empire empire = Empire.getEmpireByFaction(sourceFaction.getID());
+        if(empire == null){
+            new Message("§cОШИБКА! Твоя империя не найдена!!!").send(player, false);
+            return 0;
+        }
+
+        if(!empire.getVassalsIDList().contains(vassal.getID())){
+            new Message("§cИ чего же ты, решил кикнуть вассала, который тебе не принадлежит?").format(Formatting.RED).send(player, false);
+            return 0;
+        }
+
+        empire.removeVassal(vassal.getID());
+        new Message("§6Вассал " + vassal.getName() + " был изгнан из империи - " + empire.name + "!").sendToGlobalChat();
+        new Message("§6Ура! Ты добился своего! Твой город теперь обрёл независимость! (Тебя кикнули из империи)").sendToFactionChat(vassal);
+
+        return 1;
     }
 }

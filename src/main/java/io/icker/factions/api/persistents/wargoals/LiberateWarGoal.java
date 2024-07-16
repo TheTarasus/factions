@@ -7,7 +7,7 @@ public class LiberateWarGoal extends BaseWarGoal{
 
     public boolean isVassal;
 
-    LiberateWarGoal(boolean isVassalAggressor) {
+    public LiberateWarGoal(boolean isVassalAggressor) {
         super(isVassalAggressor);
     }
 
@@ -42,10 +42,8 @@ public class LiberateWarGoal extends BaseWarGoal{
 
     private void initSelfLiberation(StateTypeable aggressor, StateTypeable victim) {
         Empire sourceEmpire = Empire.getEmpireByFaction(aggressor.getID());
-        sourceEmpire.getVassalsIDList().remove(aggressor.getID());
+        sourceEmpire.removeVassal(aggressor.getID());
         new Message("§4Самопровозглашённая республика §6" +Faction.get(aggressor.getID()).getName() + "§4 начала войну против оков империи §6" + Empire.getEmpireByFaction(victim.getID()).name +"§4!").sendToGlobalChat();
-        WarGoal goal = new WarGoal(aggressor, victim, WarGoal.Type.LIBERATE);
-        WarGoal.add(goal);
     }
 
     @Override
@@ -64,7 +62,7 @@ public class LiberateWarGoal extends BaseWarGoal{
         }
         if(isVassalAggressor) {
             Empire chains = Empire.getEmpireByFaction(aggro.getID());
-            if (chains != null) chains.getVassalsIDList().remove(aggro.getID());
+            if (chains != null) chains.removeVassal(aggro.getID());
             new Message("§aСамопровозглашённая республика §6" + aggro.getCapitalState().getName() + "§a освободилась от оков империи §6" + Empire.getEmpireByFaction(victim.getID()).name + "§a, и победила в войне за независимость!").sendToGlobalChat();
             stopTheWar(goal);
             return;
@@ -77,7 +75,7 @@ public class LiberateWarGoal extends BaseWarGoal{
             stopTheWar(goal);
             return;
         }
-        empire.getVassalsIDList().remove(victim.getID());
+        empire.removeVassal(victim.getID());
         new Message("§aОт королевства: §6[" + empire.name + "]§a откололся вассал: §6["+ victim.getName() +"]§a, при поддержке иностранных агентов из: §6[" + aggroName + "]§a.").sendToGlobalChat();
         stopTheWar(goal);
     }

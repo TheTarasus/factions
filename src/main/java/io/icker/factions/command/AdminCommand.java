@@ -102,7 +102,7 @@ public class AdminCommand implements Command {
                 CommandManager.literal("disband")
                 .requires(Requires.hasPerms("factions.admin.disband", FactionsMod.CONFIG.REQUIRED_BYPASS_LEVEL))
                 .then(
-                    CommandManager.argument("faction", StringArgumentType.greedyString())
+                    CommandManager.argument("faction", StringArgumentType.string())
                     .suggests(Suggests.allFactions())
                     .executes(this::disband)
                 )
@@ -113,42 +113,81 @@ public class AdminCommand implements Command {
                 .then(
                     CommandManager.argument("power", IntegerArgumentType.integer())
                     .then(
-                        CommandManager.argument("faction", StringArgumentType.greedyString())
+                        CommandManager.argument("faction", StringArgumentType.string())
                         .suggests(Suggests.allFactions())
                         .executes(this::power)
                     )
                 )
-            ).then(CommandManager.literal("war").requires(Requires.hasPerms("factions.admin.war", 4))
-                        .then(CommandManager.argument("sourceFaction", StringArgumentType.string())
+            ).then(
+                    CommandManager.literal("war")
+                            .requires(Requires.hasPerms("factions.admin.war", 4))
+                            .then(CommandManager.argument("sourceFaction", StringArgumentType.string())
                                 .suggests(Suggests.allFactions())
                                 .then(CommandManager.argument("targetFaction", StringArgumentType.string())
-                                        .suggests(Suggests.allFactions()).executes(this::war))))
+                                        .suggests(Suggests.allFactions())
+                                        .executes(this::war))
+                        )
+                )
             .build();
     }
 
-    private int war(CommandContext<ServerCommandSource> context) {
+    private int war(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
 
         Faction source = Faction.getByName(StringArgumentType.getString(context, "sourceFaction"));
         Faction target = Faction.getByName(StringArgumentType.getString(context, "targetFaction"));
+        ServerPlayerEntity ctxPlayer = context.getSource().getPlayer();
+
+        if(source == null){
+            new Message("§cОшибка: Чего? Хотя бы город создай, воевать он удумал!").send(ctxPlayer, false);
+            return 0;
+        }
+        if(source.getClaims().isEmpty()){
+            new Message("§cОшибка: Чего? Хотя бы чанки запривать, воевать он удумал!").send(ctxPlayer, false);
+            return 0;
+        }
+        if(target == null) {
+            new Message("§cОшибка: неверно указано государство противника!").send(ctxPlayer, false);
+            return 0;
+        }
+
+        if(source.getClaims().isEmpty()){
+            new Message("§cОшибка: У тебя нет земель! Где-ж ты драться собираешься?").send(ctxPlayer, false);
+            return 0;
+        }
 
         if(source.getID().equals(target.getID())) {
-            new Message("§cSource and target factions are the same! Cannot declare war!");
+            new Message("§cОшибка: Труднее всего бороться с самим собой, ведь силы-то равны").send(ctxPlayer, false);
+            return 0;
         }
 
         if(source.isAdmin() || target.isAdmin()) {
-            new Message("§cCannot declare war on admin faction!");
+            new Message("§cНевозможно объявить войну на админский клан, или будучи админским кланом!").send(ctxPlayer, false);
+            return 0;
         }
+        System.out.println("DAYS_TO_FABRICATE = " + FactionsMod.CONFIG.DAYS_TO_FABRICATE);
 
-        Relationship sourceRel = new Relationship(target.getID(), -FactionsMod.CONFIG.DAYS_TO_FABRICATE - 1);
-        Relationship targetRel = new Relationship(source.getID(), -FactionsMod.CONFIG.DAYS_TO_FABRICATE - 1);
-
-        source.setRelationship(targetRel);
+        Relationship sourceRel = new Relationship(source.getID(), target.getID(), -FactionsMod.CONFIG.DAYS_TO_FABRICATE -1);
+        Relationship targetRel = new Relationship(target.getID(), source.getID(), -FactionsMod.CONFIG.DAYS_TO_FABRICATE -1);
+        User user = source.getUsers().stream().filter(u -> u.getRank().equals(User.Rank.OWNER)).findFirst().orElse(null);
+        if(user == null) {
+            new Message("§cОшибка! Глава нападающего клана - не найден! (user == null)").send(ctxPlayer, false);
+            return 0;
+        }
+        ServerPlayerEntity player = context.getSource().getServer().getPlayerManager().getPlayer(user.getName());
+        if(player == null){
+            new Message("§сОшибка! Глава нападающего клана - оффлайн (user != null && player == null)").send(ctxPlayer, false);
+            return 0;
+        }
+        source.setRelationship(sourceRel);
         target.setRelationship(targetRel);
+
+        DeclareCommand.updateWargoal(source, target, sourceRel, targetRel, player);
         long dateofwar = new Date(new Date().getTime() + (1000 * 3600 * 24 * 3)).getTime();
         source.relationsLastUpdate = dateofwar;
         target.relationsLastUpdate = dateofwar;
-        new Message("§4There will be blood...").sendToGlobalChat();
-        new Message("§4The §r" +source.getColor() + source.getName() + "§4 declares war on §r" + target.getColor() + target.getName() + "§4!").sendToGlobalChat();
+        new Message("§8§o§lСкоро грянет буря:").sendToGlobalChat();
+        new Message("§eОтношения §r" +source.getColor() + source.getName() + "§e и §r" + target.getColor() + target.getName() + "§e - накалились до предела!").sendToGlobalChat();
+
         return 1;
     }
 }

@@ -10,13 +10,14 @@ import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.World;
 
 import java.util.Date;
+import java.util.UUID;
 
 public class Prisoner {
 
     @Field("Prisoner")
     public String prisoner;
     @Field("JailFaction")
-    public String jailFaction;
+    public UUID jailFaction;
     @Field("World")
     public String world;
     @Field("DateBeforeFree")
@@ -31,7 +32,7 @@ public class Prisoner {
     @Field("z")
     public int z;
 
-    public Prisoner(String prisoner, String jailFaction, long dateBeforeFree, int x, int y, int z, String world){
+    public Prisoner(String prisoner, UUID jailFaction, long dateBeforeFree, int x, int y, int z, String world){
         this.prisoner = prisoner;
         this.dateBeforeFree = dateBeforeFree;
         this.jailFaction = jailFaction;
@@ -51,8 +52,7 @@ public class Prisoner {
         Faction faction = user.getFaction();
         if(Permissions.check(player, "factions.prison.bypass")) return false;
         if(faction == null) return true;
-        if(faction.isAdmin()) return false;
-        return true;
+        return !faction.isAdmin();
     }
 
     public boolean checkIfInJail(MinecraftServer server){
@@ -62,7 +62,8 @@ public class Prisoner {
         ChunkPos pos = playerEntity.getChunkPos();
         Claim claim = Claim.get(pos.x, pos.z, world);
         if(claim == null) return false;
-        return claim.getFaction().getName().equals(jailFaction);
+        claim.getFaction();
+        return false;
     }
 
 

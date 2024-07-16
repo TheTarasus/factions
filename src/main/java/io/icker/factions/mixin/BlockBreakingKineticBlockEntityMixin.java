@@ -6,7 +6,6 @@ import io.icker.factions.api.persistents.Claim;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -32,7 +31,7 @@ public abstract class BlockBreakingKineticBlockEntityMixin extends KineticBlockE
         String dimension = this.world.getRegistryKey().getValue().toString();
         Claim claim = Claim.get(breakingPos.getX()>>4, breakingPos.getZ()>>4, dimension);
         if(claim == null) return;
-        if(!claim.create) this.overStressed = true;
+        if(!claim.isCreate()) this.overStressed = true;
     }
 
 }

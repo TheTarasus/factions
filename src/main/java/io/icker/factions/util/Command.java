@@ -51,26 +51,26 @@ public interface Command {
         }
 
         public static Predicate<ServerCommandSource> isCommander() {
-            return require(user -> user.rank == User.Rank.COMMANDER || user.rank == User.Rank.LEADER || user.rank == User.Rank.OWNER);
+            return require(user -> user.getRank() == User.Rank.COMMANDER || user.getRank() == User.Rank.LEADER || user.getRank() == User.Rank.OWNER);
         }
 
         public static Predicate<ServerCommandSource> isLeader() {
-            return require(user -> user.rank == User.Rank.LEADER || user.rank == User.Rank.OWNER);
+            return require(user -> user.getRank() == User.Rank.LEADER || user.getRank() == User.Rank.OWNER);
         }
 
         public static Predicate<ServerCommandSource> isSheriff() {
-            return require(user -> user.rank == User.Rank.SHERIFF || user.rank == User.Rank.COMMANDER || user.rank == User.Rank.LEADER || user.rank == User.Rank.OWNER);
+            return require(user -> user.getRank() == User.Rank.SHERIFF || user.getRank() == User.Rank.COMMANDER || user.getRank() == User.Rank.LEADER || user.getRank() == User.Rank.OWNER);
         }
 
         public static Predicate<ServerCommandSource> isEmperor(){
             return require(user -> {
                 if (user.getFaction() == null) return false;
-                return (user.rank == User.Rank.OWNER || user.rank == User.Rank.LEADER) && Empire.isAnyMetropoly(user.getFaction().getID());
+                return (user.getRank() == User.Rank.OWNER || user.getRank() == User.Rank.LEADER) && Empire.isAnyMetropoly(user.getFaction().getID());
             });
         }
 
         public static Predicate<ServerCommandSource> isOwner() {
-            return require(user -> user.rank == User.Rank.OWNER);
+            return require(user -> user.getRank() == User.Rank.OWNER);
         }
         
         public static Predicate<ServerCommandSource> isAdmin() {
@@ -106,24 +106,31 @@ public interface Command {
                 Faction.all()
                     .stream()
                     .filter(f -> includeYou || !user.isInFaction() || !user.getFaction().getID().equals(f.getID()))
-                    .map(f -> f.getName())
+                    .map(f -> String.format("\"%s\"", f.getName()))
                     .toArray(String[]::new)
             );
         }
 
         public static SuggestionProvider<ServerCommandSource> allWithNegativeRelations(){
             return suggest(user ->
-                user.getFaction().getEnemiesWith().stream().map(r -> Faction.get(r.target).getCapitalState().getName())
+                user.getFaction().getEnemiesWith().stream().map(r -> String.format("\"%s\"", Faction.get(r.target).getCapitalState().getName()))
                         .toArray(String[]::new)
             );
         }
 
-        public static SuggestionProvider<ServerCommandSource> allWargoals(){
-            return suggest(user -> {
-                Faction source = user.getFaction();
-                return Arrays.stream(WarGoal.Type.values()).map(type -> type.name).toArray(String[]::new);
-            }
+        public static SuggestionProvider<ServerCommandSource> allVassals(){
+            return suggest(user ->
+                    Empire.getEmpireByFaction(user.getFaction().getID()).getVassalsIDList().stream().map(v -> {
+                                Faction vassal = Faction.get(v);
+
+                                return String.format("\"%s\"", vassal.getName());
+                            })
+                            .toArray(String[]::new)
             );
+        }
+
+        public static SuggestionProvider<ServerCommandSource> allWargoals(){
+            return suggest(user -> Arrays.stream(WarGoal.Type.values()).map(type -> type.name).toArray(String[]::new));
         }
 
         public static SuggestionProvider<ServerCommandSource> openFactions() {
@@ -131,10 +138,11 @@ public interface Command {
                 Faction.all()
                     .stream()
                     .filter(f -> f.isOpen())
-                    .map(f -> f.getName())
+                    .map(f -> String.format("\"%s\"", f.getName()))
                     .toArray(String[]::new)
             );
         }
+
 
 
 
@@ -143,7 +151,7 @@ public interface Command {
                 Faction.all()
                     .stream()
                     .filter(f -> f.isOpen() || f.isInvited(user.getName()))
-                    .map(f -> f.getName())
+                    .map(f -> String.format("\"%s\"", f.getName()))
                     .toArray(String[]::new)
             );
         }

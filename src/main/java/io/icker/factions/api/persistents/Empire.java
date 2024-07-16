@@ -27,7 +27,10 @@ public class Empire implements StateTypeable {
     public String name;
 
     @Field("metropolyID")
-    public UUID metropolyID;
+    private UUID metropolyID;
+
+    @Field("empireTax")
+    public float empireTax;
 
     @Field("vassalsIDList")
     private ArrayList<UUID> vassalsIDList;
@@ -42,13 +45,17 @@ public class Empire implements StateTypeable {
 
     public WarGoal goal;
 
+    @Override
+    public String getName(){
+        return this.name;
+    }
+
     public Empire(UUID id, UUID metropolyID, ArrayList<UUID> vassalsIDList, String name, String metropolyBannerLocation, String vassalBannerLocation, Formatting color){
         this.id = id;
-        this.metropolyID = metropolyID;
+        this.setMetropolyID(metropolyID);
         this.setVassalsIDList(vassalsIDList == null ? new ArrayList<>() : vassalsIDList);
         this.name = name;
         this.color = color.getName();
-        this.setVassalsIDList(new ArrayList<>());
         this.metropolyBannerLocation = metropolyBannerLocation == null ? FactionsMod.ANCAP_METROPOLY_BANNER.toString() : metropolyBannerLocation;
         this.vassalBannerLocation = vassalBannerLocation == null ? FactionsMod.ANCAP_VASSAL_BANNER.toString() : metropolyBannerLocation;
         this.goal = WarGoal.activeWarWithState(this.getCapitalState());
@@ -56,6 +63,15 @@ public class Empire implements StateTypeable {
     }
 
     public Empire() {}
+
+    public void addVassal(UUID id){
+        this.vassalsIDList.add(id);
+        vassalsIDList.remove(this.metropolyID);
+    }
+    public void removeVassal(UUID id){
+        this.vassalsIDList.remove(id);
+        vassalsIDList.remove(this.metropolyID);
+    }
 
     private void setMetropolyBannerLocation(File file){
         this.metropolyBannerLocation = file.toString();
@@ -76,16 +92,17 @@ public class Empire implements StateTypeable {
     }
     public void updateAllEmpire(){
         for(UUID vassalID : this.getVassalsIDList()) {
-            FactionEvents.MODIFY.invoker().onModify(Faction.get(vassalID));
             Faction faction = Faction.get(vassalID);
+            if(faction == null) {this.removeVassal(vassalID); continue;}
+            FactionEvents.MODIFY.invoker().onModify(faction);
             faction.setActiveWargoal(this.goal);
             faction.setEmpireBannerLocation(new File(getVassalFlagPath()));
         }
 
-        Faction faction = Faction.get(this.metropolyID);
+        Faction faction = Faction.get(this.getMetropolyID());
         faction.setActiveWargoal(this.goal);
         faction.setEmpireBannerLocation(new File(getMetropolyFlagPath()));
-        FactionEvents.MODIFY.invoker().onModify(Faction.get(this.metropolyID));
+        FactionEvents.MODIFY.invoker().onModify(Faction.get(this.getMetropolyID()));
     }
 
     public String getMetropolyFlagPath(){
@@ -105,23 +122,29 @@ public class Empire implements StateTypeable {
     }
     public void setColor(Formatting color) {
         this.color = color.getName();
-        if(this.getStateType().equals(WarGoal.StateType.EMPIRE)) updateAllEmpire();
+        updateAllEmpire();
     }
     @Override
     public UUID getID(){
         return id;
     }
 
+    public static boolean isVassalOfFaction(UUID suzerain, UUID vassal){
+        return STORE.values().stream().anyMatch(empire -> empire.getMetropolyID().equals(suzerain) && empire.vassalsIDList.contains(vassal));
+    }
+
     public boolean isFactionIn(UUID id){
-        return metropolyID.equals(id) || getVassalsIDList().contains(id);
+        return getMetropolyID().equals(id) || getVassalsIDList().contains(id);
     }
 
     public boolean isVassal(UUID id){
+        vassalsIDList.remove(this.metropolyID);
         return getVassalsIDList().contains(id);
     }
 
     public boolean isMetropoly(UUID id){
-        return metropolyID.equals(id);
+        vassalsIDList.remove(this.metropolyID);
+        return getMetropolyID().equals(id);
     }
 
     public static Empire getEmpire(UUID id){
@@ -148,10 +171,17 @@ public class Empire implements StateTypeable {
 
     public void remove(){
         List<UUID> members = getVassalsIDList();
-        members.add(metropolyID);
+        WarGoal goal = this.getActiveWargoal();
+        if(goal != null) {
+            this.goal.remove();
+            return;
+        };
+        this.setWarGoal(null);
+        members.add(getMetropolyID());
         for (UUID id : members){
             Faction faction = Faction.get(id);
             if(faction == null) continue;
+            faction.resetDotations();
             FactionEvents.MODIFY.invoker().onModify(faction);
         }
         EmperorLocalization.get(this.getID()).remove();
@@ -168,9 +198,11 @@ public class Empire implements StateTypeable {
     public void releaseAllPrisonersBeforeWar(StateTypeable targetState){
         List<UUID> ids = new ArrayList<>();
         ids.addAll(this.getVassalsIDList());
-        ids.add(this.metropolyID);
+        ids.add(this.getMetropolyID());
         for(UUID id : ids){
             Faction faction = Faction.get(id);
+            if(faction == null) {this.removeVassal(id); continue;}
+            if(faction.jail == null) continue;
             faction.jail.releaseAllPrisonersBeforeWar(targetState);
         }
         Empire targetEmpire = Empire.getEmpireByFaction(targetState.getID());
@@ -184,7 +216,7 @@ public class Empire implements StateTypeable {
 
     @Override
     public Faction getCapitalState() {
-        return Faction.get(this.metropolyID);
+        return Faction.get(this.getMetropolyID());
     }
 
     @Override
@@ -192,9 +224,11 @@ public class Empire implements StateTypeable {
         List<User> users = new ArrayList<>();
         List<UUID> members = new ArrayList<>();
         members.addAll(this.getVassalsIDList());
-        members.add(this.metropolyID);
+        members.add(this.getMetropolyID());
         for (UUID id : members){
-            users.addAll(Faction.get(id).getUsers());
+            Faction faction = Faction.get(id);
+            if(faction == null) continue;
+            users.addAll(faction.getUsers());
         }
         return users;
     }
@@ -211,11 +245,21 @@ public class Empire implements StateTypeable {
     }
 
     public ArrayList<UUID> getVassalsIDList() {
+        vassalsIDList.remove(this.metropolyID);
         return vassalsIDList;
     }
 
     public void setVassalsIDList(ArrayList<UUID> vassalsIDList) {
+        vassalsIDList.remove(this.metropolyID);
         this.vassalsIDList = vassalsIDList;
         FactionEvents.UPDATE_ALL_EMPIRE.invoker().onUpdate(this);
+    }
+
+    public UUID getMetropolyID() {
+        return metropolyID;
+    }
+
+    public void setMetropolyID(UUID metropolyID) {
+        this.metropolyID = metropolyID;
     }
 }

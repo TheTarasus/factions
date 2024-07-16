@@ -3,9 +3,7 @@ package io.icker.factions.core;
 import io.icker.factions.FactionsMod;
 import io.icker.factions.api.events.MiscEvents;
 import io.icker.factions.api.events.PlayerEvents;
-import io.icker.factions.api.persistents.Claim;
-import io.icker.factions.api.persistents.Faction;
-import io.icker.factions.api.persistents.User;
+import io.icker.factions.api.persistents.*;
 import io.icker.factions.util.Message;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
@@ -46,14 +44,25 @@ public class WorldManager {
                     .send(faction);
             }
         }
+        if(world.getTime() % 40 != 0) return;
         if (FactionsMod.CONFIG.RADAR && user.radar) {
             if (claim != null) {
+                Message additional = new Message("");
+                if(Empire.getEmpireByFaction(claim.factionID) != null){
+                    Empire empire = Empire.getEmpireByFaction(claim.factionID);
+                    additional.add(new Message(" | " + empire.name).format(empire.getCapitalState().getColor()));
+                }
+                if(claim.getFaction().getActiveWargoal() != null){
+                    WarGoal goal = claim.getFaction().getCapitalState().getActiveWargoal();
+                    additional.add(new Message(" | Воюет с " + goal.reverseName(claim.getFaction())).format(Formatting.DARK_RED));
+                }
                 new Message(claim.getFaction().getName())
                     .format(claim.getFaction().getColor())
+                    .add(additional)
                     .send(player, true);
             } else {
-                new Message("Wilderness")
-                    .format(Formatting.GREEN)
+                new Message("[ПУСТОШЬ]")
+                    .format(Formatting.DARK_GRAY)
                     .send(player, true);
             }
         }

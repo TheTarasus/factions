@@ -18,7 +18,7 @@ public class BlockMovementChecksMixin {
         String dimension = world.getRegistryKey().getValue().toString();
         Claim claim = Claim.get(pos.getX()>>4, pos.getZ()>>4, dimension);
         if(claim == null) return;
-        if(!claim.create) ci.setReturnValue(false);
+        if(!claim.isCreate()) ci.setReturnValue(false);
     }
 
 }

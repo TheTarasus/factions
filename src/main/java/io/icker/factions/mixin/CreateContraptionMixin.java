@@ -4,16 +4,8 @@ import com.simibubi.create.content.contraptions.Contraption;
 import com.simibubi.create.content.contraptions.StructureTransform;
 import com.simibubi.create.foundation.utility.Iterate;
 import io.icker.factions.api.persistents.Claim;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.loot.context.LootContext;
-import net.minecraft.loot.context.LootContextParameters;
-import net.minecraft.server.world.ServerWorld;
 import net.minecraft.structure.Structure;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -38,7 +30,7 @@ public class CreateContraptionMixin {
                 BlockPos targetPos = transform.apply(block.pos);
                 Claim claim = Claim.get(targetPos.getX()>>4, targetPos.getZ()>>4, dimension);
                 if(claim == null) continue;
-                if(!claim.create) {
+                if(!claim.isCreate()) {
                     ci.cancel();
                 }
             }

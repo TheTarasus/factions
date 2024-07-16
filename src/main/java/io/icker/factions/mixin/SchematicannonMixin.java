@@ -11,7 +11,6 @@ import net.minecraft.screen.NamedScreenHandlerFactory;
 import net.minecraft.util.math.BlockPos;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.gen.Invoker;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -40,7 +39,7 @@ public abstract class SchematicannonMixin extends SmartBlockEntity implements Na
         String dimension = this.getWorld().getRegistryKey().getValue().toString();
         Claim claim = Claim.get(pos.getX()>>4, pos.getZ()>>4, dimension);
         if(claim == null) return;
-        if(!claim.create) {
+        if(!claim.isCreate()) {
             this.state = SchematicannonBlockEntity.State.PAUSED;
             this.statusMsg = "notInCreateChunk";
             this.sendUpdate = true;

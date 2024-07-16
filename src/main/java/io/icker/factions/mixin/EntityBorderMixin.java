@@ -31,8 +31,8 @@ public abstract class EntityBorderMixin {
     @Inject(method = "move", at = @At("HEAD"))
     public void move(MovementType movementType, Vec3d movement, CallbackInfo ci){
         if(!FactionsMod.CONFIG.EARTH_BORDERS_ENABLED) return;
-        boolean out = outOfBorders((int)this.getX(), (int)this.getZ());
-        if(!out) return;
+        boolean in = inBorders((int)this.getX(), (int)this.getZ());
+        if(in) return;
         if(this.hasVehicle()) return;
         int destX = destinationPolarX((int)this.getX());
         int destZ = (int) (this.getZ() > FactionsMod.CONFIG.EARTH_MAX_Z ? this.getZ() - 16 : this.getZ() + 16);
@@ -54,16 +54,16 @@ public abstract class EntityBorderMixin {
     }
 
     @Unique
-    public boolean outOfBorders(int entityX, int entityZ){
+    public boolean inBorders(int entityX, int entityZ){
         int mapMinX = FactionsMod.CONFIG.EARTH_MIN_X,
             mapMinZ = FactionsMod.CONFIG.EARTH_MIN_Z,
             mapMaxX = FactionsMod.CONFIG.EARTH_MAX_X,
             mapMaxZ = FactionsMod.CONFIG.EARTH_MAX_Z;
 
-        return  entityX<mapMinX + 12 &&
-                entityX>mapMaxX - 12 &&
-                entityZ<mapMinZ + 12 &&
-                entityZ>mapMaxZ + 12;
+        return  entityX<=mapMaxX + 12 &&
+                entityX>=mapMinX - 12 &&
+                entityZ<=mapMaxZ + 12 &&
+                entityZ>mapMinZ + 12;
     }
 
 }

@@ -34,10 +34,10 @@ public class RankCommand implements Command {
         for (User users : faction.getUsers())
             if (users.getName().equals(target.getName().getString())) {
 
-                switch (users.rank) {
-                    case MEMBER -> users.rank = User.Rank.SHERIFF;
-                    case SHERIFF -> users.rank = User.Rank.COMMANDER;
-                    case COMMANDER -> users.rank = User.Rank.LEADER;
+                switch (users.getRank()) {
+                    case MEMBER -> users.setRank(User.Rank.SHERIFF);
+                    case SHERIFF -> users.setRank(User.Rank.COMMANDER);
+                    case COMMANDER -> users.setRank(User.Rank.LEADER);
                     case LEADER -> {
                         new Message("You cannot promote a Leader to Owner").format(Formatting.RED).send(player, false);
                         return 0;
@@ -77,25 +77,25 @@ public class RankCommand implements Command {
         for (User user : faction.getUsers())
             if (user.getName().equals(target.getName().getString())) {
 
-                switch (user.rank) {
+                switch (user.getRank()) {
                     case MEMBER -> {
                         new Message("You cannot demote a Member").format(Formatting.RED).send(player, false);
                         return 0;
                     }
-                    case SHERIFF -> user.rank = User.Rank.MEMBER;
+                    case SHERIFF -> user.setRank(User.Rank.MEMBER);
                     case COMMANDER -> {
-                        if(User.get(player.getName().getString()).rank == User.Rank.COMMANDER){
+                        if(User.get(player.getName().getString()).getRank() == User.Rank.COMMANDER){
                             new Message("You cannot demote your comrade!").format(Formatting.RED).send(player, false);
                             return 0;
                         }
                     }
                     case LEADER -> {
-                        if (User.get(player.getName().getString()).rank == User.Rank.LEADER) {
+                        if (User.get(player.getName().getString()).getRank() == User.Rank.LEADER) {
                             new Message("You cannot demote a fellow Co-Owner").format(Formatting.RED).send(player, false);
                             return 0;
                         }
 
-                        user.rank = User.Rank.COMMANDER;
+                        user.setRank(User.Rank.COMMANDER);
                     }
                     case OWNER -> {
                         new Message("You cannot demote the Owner").format(Formatting.RED).send(player, false);
@@ -131,8 +131,8 @@ public class RankCommand implements Command {
         User targetUser = User.get(target.getName().getString());
         UUID targetFaction = targetUser.isInFaction() ? targetUser.getFaction().getID() : null;
         if (User.get(player.getName().getString()).getFaction().getID().equals(targetFaction)) {
-            targetUser.rank = User.Rank.OWNER;
-            User.get(player.getName().getString()).rank = User.Rank.LEADER;
+            targetUser.setRank(User.Rank.OWNER);
+            User.get(player.getName().getString()).setRank(User.Rank.LEADER);
 
             context.getSource().getServer().getPlayerManager().sendCommandTree(player);
             context.getSource().getServer().getPlayerManager().sendCommandTree(target);

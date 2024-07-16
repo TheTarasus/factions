@@ -23,7 +23,7 @@ public class InviteCommand implements Command {
     private int list(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
         ServerCommandSource source = context.getSource();
 
-        List<String> invites = User.get(source.getPlayer().getName().getString()).getFaction().invites;
+        List<String> invites = User.get(source.getPlayer().getName().getString()).getFaction().getInvites();
         int count = invites.size();
 
         new Message("У тебя ")
@@ -63,7 +63,7 @@ public class InviteCommand implements Command {
             return 0;
         }
 
-        faction.invites.add(target.getName().getString());
+        faction.addInvite(target.getName().getString());
 
         new Message(target.getName().getString() + " приглашён в город.")
                 .send(faction);
@@ -81,7 +81,7 @@ public class InviteCommand implements Command {
         ServerPlayerEntity player = source.getPlayer();
 
         Faction faction = User.get(player.getName().getString()).getFaction();
-        faction.invites.remove(target.getName().getString());
+        faction.removeInvite(target.getName().getString());
 
         new Message("Приглашение у игрока " +target.getName().getString() + " потеряло свою актуальность").send(player, false);
         return 1;
@@ -227,7 +227,7 @@ public class InviteCommand implements Command {
             new Message(targetFaction.getName() + " уже твой вассал!").format(Formatting.RED).send(player, false);
             return 0;
         }
-        User targetOwnerUser = targetFaction.getUsers().stream().filter(u -> u.rank == User.Rank.OWNER).findFirst().orElse(null);
+        User targetOwnerUser = targetFaction.getUsers().stream().filter(u -> u.getRank() == User.Rank.OWNER).findFirst().orElse(null);
 
         if(targetOwnerUser == null){
             new Message("Ошибка: В городе "+ targetFaction.getName() +" не найден ни один король (Что??? Репортни это админам!)").format(Formatting.RED).send(player, false);

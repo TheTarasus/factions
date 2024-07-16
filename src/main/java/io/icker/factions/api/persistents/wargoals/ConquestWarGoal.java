@@ -72,7 +72,7 @@ public class ConquestWarGoal extends BaseWarGoal{
             return;
         }
         List<UUID> vassals = sourceEmpire.getVassalsIDList();
-        vassals.add(sourceEmpire.metropolyID);
+        vassals.add(sourceEmpire.getMetropolyID());
         List<Faction> nearFactions = new ArrayList<>();
         for(UUID id : vassals){
             Faction vassal = Faction.get(id);
@@ -89,8 +89,8 @@ public class ConquestWarGoal extends BaseWarGoal{
             if(j>totalFactions+5) break;
             j++;
             if(!isNear) {i--; continue;}
-            sourceEmpire.getVassalsIDList().remove(vassal.getID());
-            targetEmpire.getVassalsIDList().add(vassal.getID());
+            sourceEmpire.removeVassal(vassal.getID());
+            targetEmpire.addVassal(vassal.getID());
             new Message("§eГород: §c\""+vassal.getName() + "\"§e вошёл в состав Империи: §5\"" + targetEmpire.name + "\", в качестве репарации.");
         }
         stopTheWar(sourceEmpire.goal);

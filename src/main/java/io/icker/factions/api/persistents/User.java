@@ -9,14 +9,9 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.LiteralText;
-import net.minecraft.util.Identifier;
 import net.minecraft.util.Util;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.registry.Registry;
-import net.minecraft.util.registry.RegistryKey;
-import net.minecraft.world.World;
 
-import java.awt.*;
 import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -24,6 +19,15 @@ import java.util.stream.Collectors;
 @Name("User")
 public class User {
     private static final HashMap<String, User> STORE = Database.load(User.class, User::getName);
+
+    public Rank getRank() {
+        if(rank == null) return Rank.TOWNLESS;
+        return rank;
+    }
+
+    public void setRank(Rank rank) {
+        this.rank = rank;
+    }
 
     public enum ChatMode {
         FOCUS,
@@ -36,7 +40,8 @@ public class User {
         LEADER,
         COMMANDER,
         SHERIFF,
-        MEMBER
+        MEMBER,
+        TOWNLESS
     }
 
     public enum SoundMode {
@@ -55,10 +60,10 @@ public class User {
     private UUID factionID;
 
     @Field("Rank")
-    public Rank rank;
+    private Rank rank;
 
     @Field("Radar")
-    public boolean radar = false;
+    public boolean radar = true;
 
     @Field("Chat")
     public ChatMode chat = ChatMode.GLOBAL;
@@ -120,7 +125,7 @@ public class User {
             return getLocalizedRankName();
         Empire empire = Empire.getEmpireByFaction(faction.getID());
         if(empire == null) return getLocalizedRankName();
-        switch (rank) {
+        switch (getRank()) {
             case OWNER:
                 return "Его Величество - " + this.getName() + ", Император " + empire.name;
             case LEADER:
@@ -135,7 +140,7 @@ public class User {
     }
 
     public String getLocalizedRankName(){
-        switch (rank){
+        switch (getRank()){
             case OWNER -> {
                 return "Владелец города";
             }
@@ -168,14 +173,14 @@ public class User {
 
     public void joinFaction(UUID factionID, Rank rank) {
         this.factionID = factionID;
-        this.rank = rank;
+        this.setRank(rank);
         FactionEvents.MEMBER_JOIN.invoker().onMemberJoin(Faction.get(factionID), this);
     }
 
     public void leaveFaction() {
         UUID oldFactionID = factionID;
         factionID = null;
-        rank = null;
+        setRank(null);
         FactionEvents.MEMBER_LEAVE.invoker().onMemberLeave(Faction.get(oldFactionID), this);
     }
 
@@ -187,8 +192,8 @@ public class User {
         if(this.prisoner == null) return null;
         if(!this.prisoner.checkIfInJail(server)) {
             server.getPlayerManager().broadcast(new LiteralText("§e[JAILBREAK!]§c " + this.name + "§e has escaped from §c" + this.prisoner.jailFaction + " prison!"), MessageType.CHAT, Util.NIL_UUID);
-            Faction jailFaction = Faction.getByName(this.prisoner.jailFaction);
-            jailFaction.jail.prisoners.removeIf(p -> p.prisoner.equals(this.name));
+            Faction jailFaction = Faction.get(this.prisoner.jailFaction);
+            jailFaction.jail.getPrisoners().removeIf(p -> p.prisoner.equals(this.name));
             this.prisoner = null;
             return null;
         }
@@ -198,12 +203,14 @@ public class User {
     public boolean setImprisoned(ServerWorld world, Faction jailFaction, int hours){
         if(this.prisoner != null) return false;
         Jail jail = jailFaction.jail;
+        if(jail == null) return false;
         BlockPos prisonRespawn = new BlockPos(jail.x, jail.y, jail.z);
-        Prisoner detained = new Prisoner(name, jailFaction.getName(), new Date().getTime() + (1000L * 3600L * hours), prisonRespawn.getX(), prisonRespawn.getY(), prisonRespawn.getZ(), world.getRegistryKey().getValue().toString());
+        Prisoner detained = new Prisoner(name, jailFaction.getID(), new Date().getTime() + (1000L * 3600L * hours), prisonRespawn.getX(), prisonRespawn.getY(), prisonRespawn.getZ(), world.getRegistryKey().getValue().toString());
         if(!detained.isValid(world.getServer())) return false;
-        jailFaction.jail.prisoners.add(detained);
+        jailFaction.jail.getPrisoners().add(detained);
         this.prisoner = detained;
         ServerPlayerEntity player = world.getServer().getPlayerManager().getPlayer(this.name);
+        if(player == null) return false;
         player.teleport(world, jail.x, jail.y, jail.z, jail.yaw, jail.pitch);
         player.setSpawnPoint(world.getRegistryKey(), prisonRespawn, jail.yaw, true, false);
 
@@ -211,9 +218,10 @@ public class User {
     }
 
     public void resetImprisoned(ServerWorld world){
-        ServerPlayerEntity player = world.getServer().getPlayerManager().getPlayer(this.prisoner.prisoner);
-        player.setSpawnPoint(world.getRegistryKey(), world.getSpawnPos(), 0, false, false);
         this.prisoner = null;
+        ServerPlayerEntity player = world.getServer().getPlayerManager().getPlayer(this.prisoner.prisoner);
+        if(player == null) return;
+        player.setSpawnPoint(world.getRegistryKey(), world.getSpawnPos(), 0, false, false);
     }
 
     public void resetImprisoned(){

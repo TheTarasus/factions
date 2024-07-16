@@ -4,13 +4,14 @@ import io.icker.factions.FactionsMod;
 import io.icker.factions.api.events.ClaimEvents;
 import io.icker.factions.api.events.FactionEvents;
 import io.icker.factions.api.persistents.*;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.math.ChunkPos;
 import org.dynmap.DynmapCommonAPI;
 import org.dynmap.DynmapCommonAPIListener;
 import org.dynmap.markers.*;
 
+import javax.annotation.Nullable;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.util.List;
@@ -33,7 +34,7 @@ public class DynmapWrapper {
                 if (empireMarkerSet == null) empireMarkerSet = markerApi.createMarkerSet("dynmap-empires", "Империи", null, true);
                 if (regionMarkerSet == null) regionMarkerSet = markerApi.createMarkerSet("dynmap-regions", "Регионы", null, true);
                 regionMarkerSet.setHideByDefault(true);
-                generateMarkers();
+                FactionsMod.dynmap.reloadAll();
             }
         });
 
@@ -48,13 +49,12 @@ public class DynmapWrapper {
         FactionEvents.BANNER_UPDATE.register(faction -> removeBanners(faction.getID(), regionMarkerSet));
         FactionEvents.BANNER_UPDATE.register(faction -> removeBanners(faction.getID(), empireMarkerSet));
         FactionEvents.EMPIRE_BANNER_UPDATE.register(empire -> {
-            empire.getVassalsIDList().forEach(id -> removeBanners(id, empireMarkerSet)); removeBanners(empire.metropolyID, empireMarkerSet); });
+            empire.getVassalsIDList().forEach(id -> removeBanners(id, empireMarkerSet)); removeBanners(empire.getMetropolyID(), empireMarkerSet); });
         FactionEvents.MEMBER_JOIN.register((faction, user) -> updateFaction(faction));
         FactionEvents.MEMBER_LEAVE.register((faction, user) -> updateFaction(faction));
         FactionEvents.POWER_CHANGE.register((faction, oldPower) -> updateFaction(faction));
         FactionEvents.SET_HOME.register((faction, home) -> removeBanners(faction.getID(), regionMarkerSet));
         FactionEvents.SET_HOME.register((faction, home) -> removeBanners(faction.getID(), empireMarkerSet));
-        ServerLifecycleEvents.SERVER_STARTED.register(server -> reloadAll());
         FactionEvents.UPDATE_ALL_EMPIRE.register(this::updateAllLocalizations);
     }
 
@@ -89,13 +89,14 @@ public class DynmapWrapper {
             new double[]{pos.getStartZ(), pos.getEndZ() + 1},
             true
         );
+        float opacity = claim.dotational ? 0.1f : 0.5f;
 
         Empire empire = Empire.getEmpireByFaction(faction.getID());
         Formatting color = faction.getColor();
-        if(empire != null) color = empire.getColor();
+        if(empire != null) color = empire.getCapitalState().getColor();
 
         if (marker != null) {
-            marker.setFillStyle(marker.getFillOpacity(), color.getColorValue());
+            marker.setFillStyle(opacity, color.getColorValue());
             marker.setLineStyle(0, 1.0, color.getColorValue());
         }
         AreaMarker regionMarker = regionMarkerSet.createAreaMarker(
@@ -106,7 +107,7 @@ public class DynmapWrapper {
                 true
         );
         if (regionMarker != null) {
-            regionMarker.setFillStyle(marker.getFillOpacity(), faction.getColor().getColorValue());
+            regionMarker.setFillStyle(opacity, faction.getColor().getColorValue());
             regionMarker.setLineStyle(0, 1.0, faction.getColor().getColorValue());
         }
     }
@@ -117,10 +118,12 @@ public class DynmapWrapper {
             if(!claim.getFaction().getID().equals(faction.getID())) return;
         Empire empire = Empire.getEmpireByFaction(faction.getID());
             Formatting color = faction.getColor();
-            if (empire != null) color = empire.getColor();
+            if (empire != null) color = empire.getCapitalState().getColor();
             deletePolyMarkers(claim.x, claim.z, claim.level, empireMarkerSet);
             deletePolyMarkers(claim.x, claim.z, claim.level, regionMarkerSet);
 
+
+        int thickness = claim.dotational ? 1 : 3;
 
             boolean haveEast = !claims.contains(Claim.get(claim.x + 1, claim.z, claim.level));
             boolean haveNorth = !claims.contains(Claim.get(claim.x, claim.z - 1, claim.level));
@@ -137,7 +140,7 @@ public class DynmapWrapper {
                         true
                 );
                 if (marker != null)
-                    marker.setLineStyle(3, 1.0, color.getColorValue());
+                    marker.setLineStyle(thickness, 1.0, color.getColorValue());
             }
             if (haveEast) {
                 PolyLineMarker marker = empireMarkerSet.createPolyLineMarker(
@@ -149,7 +152,7 @@ public class DynmapWrapper {
                         true
                 );
                 if (marker != null)
-                    marker.setLineStyle(3, 1.0, color.getColorValue());
+                    marker.setLineStyle(thickness, 1.0, color.getColorValue());
             }
             if (haveNorth) {
                 PolyLineMarker marker = empireMarkerSet.createPolyLineMarker(
@@ -161,7 +164,7 @@ public class DynmapWrapper {
                         true
                 );
                 if (marker != null)
-                    marker.setLineStyle(3, 1.0, color.getColorValue());
+                    marker.setLineStyle(thickness, 1.0, color.getColorValue());
             }
 
             if (haveSouth) {
@@ -175,7 +178,7 @@ public class DynmapWrapper {
                 );
 
                 if (marker != null)
-                    marker.setLineStyle(3, 1.0, color.getColorValue());
+                    marker.setLineStyle(thickness, 1.0, color.getColorValue());
             }
 
             if (haveWest) {
@@ -188,7 +191,7 @@ public class DynmapWrapper {
                         true
                 );
                 if (marker != null)
-                    marker.setLineStyle(3, 1.0, faction.getColor().getColorValue());
+                    marker.setLineStyle(thickness, 1.0, faction.getColor().getColorValue());
             }
             if (haveEast) {
                 PolyLineMarker marker = regionMarkerSet.createPolyLineMarker(
@@ -200,7 +203,7 @@ public class DynmapWrapper {
                         true
                 );
                 if (marker != null)
-                    marker.setLineStyle(3, 1.0, faction.getColor().getColorValue());
+                    marker.setLineStyle(thickness, 1.0, faction.getColor().getColorValue());
             }
             if (haveNorth) {
                 PolyLineMarker marker = regionMarkerSet.createPolyLineMarker(
@@ -212,7 +215,7 @@ public class DynmapWrapper {
                         true
                 );
                 if (marker != null)
-                    marker.setLineStyle(3, 1.0, faction.getColor().getColorValue());
+                    marker.setLineStyle(thickness, 1.0, faction.getColor().getColorValue());
             }
 
             if (haveSouth) {
@@ -226,7 +229,7 @@ public class DynmapWrapper {
                 );
 
                 if (marker != null)
-                    marker.setLineStyle(3, 1.0, faction.getColor().getColorValue());
+                    marker.setLineStyle(thickness, 1.0, faction.getColor().getColorValue());
             }
     }
 
@@ -319,12 +322,9 @@ public class DynmapWrapper {
         Empire empire = Empire.getEmpireByFaction(faction.getID());
         Formatting color = faction.getColor();
 
-        setHome(faction, faction.getHome());
-        setHomeRegion(faction, faction.getHome());
-
         List<Claim> claims = faction.getClaims();
 
-        if(empire != null) color = empire.getColor();
+        if(empire != null) color = empire.getCapitalState().getColor();
         if(!faction.getClaims().isEmpty())
             for (Claim claim : claims)
                 removeClaim(claim.x, claim.z, claim.level, faction, 1);
@@ -336,24 +336,14 @@ public class DynmapWrapper {
     }
 
     public void removeBanners(UUID id, MarkerSet set){
-        Marker empireDefault = empireMarkerSet.findMarker(id.toString());
-        Marker regionDefault = regionMarkerSet.findMarker(id.toString());
-        MarkerIcon icon0 = markerApi.getMarkerIcon(id + "_minor");
-        MarkerIcon icon1 = markerApi.getMarkerIcon(id + "_vassal");
-        MarkerIcon icon2 = markerApi.getMarkerIcon(id + "_metropoly");
-        MarkerIcon icon3 = markerApi.getMarkerIcon(id + "_admin");
+        MarkerIcon icon0 = markerApi.getMarkerIcon(id + "_empire");
+        MarkerIcon icon1 = markerApi.getMarkerIcon(id + "_regional");
         if(icon0 != null) icon0.deleteIcon();
         if(icon1 != null) icon1.deleteIcon();
-        if(icon2 != null) icon2.deleteIcon();
-        if(icon3 != null) icon3.deleteIcon();
-        Marker marker0 = set.findMarker(id + "_minor");
-        Marker marker1 = set.findMarker(id + "_vassal");
-        Marker marker2 = set.findMarker(id + "_metropoly");
-        Marker marker3 = set.findMarker(id + "_admin");
+        Marker marker0 = set.findMarker(id + "_empire");
+        Marker marker1 = set.findMarker(id + "_regional");
         if(marker0 != null) marker0.deleteMarker();
         if(marker1 != null) marker1.deleteMarker();
-        if(marker2 != null) marker2.deleteMarker();
-        if(marker3 != null) marker3.deleteMarker();
         Faction faction = Faction.get(id);
         if(faction != null) {
             setHome(faction, faction.getHome());
@@ -364,61 +354,77 @@ public class DynmapWrapper {
     private void setHome(Faction faction, Home home) {
         if(home == null) return;
         Empire empire = Empire.getEmpireByFaction(faction.getID());
-        String markerName = empire == null ? faction.getID().toString() : empire.getID().toString();
-        String markerPostfix = "_minor";
-        switch (faction.getStateType()){
-            case FREE_STATE -> markerPostfix = "_minor";
-            case VASSAL -> markerPostfix = "_vassal";
-            case EMPIRE -> markerPostfix = "_empire";
-        }
-        if(faction.isAdmin()) markerPostfix = "_admin";
+
+
+        String markerName = empire == null ?
+                faction.getID().toString() :
+                empire.isVassal(faction.getID())
+                        ? empire.getVassalFlagPath()
+                        .replaceAll("^(.*[\\\\\\/])", "")
+                        .replaceAll(".png", "")
+
+                        : empire.getMetropolyFlagPath()
+                        .replaceAll("^(.*[\\\\\\/])", "")
+                        .replaceAll(".png", "");
+
+
+        String markerPostfix = "";
+        if(faction.getStateType().equals(WarGoal.StateType.FREE_STATE)) markerPostfix = "_minor";
         markerName = markerName + markerPostfix;
-
-
-
-        MarkerIcon icon = markerApi.getMarkerIcon(markerName);
-        if(icon != null){
-            icon.deleteIcon();
-        }
-        icon = generateIcon(faction, false);
+        if(faction.isAdmin()) markerName = faction.getID() + "_admin";
 
         Marker marker = empireMarkerSet.findMarker(markerName);
-        if (marker != null) {
+
+        if (marker != null)
             marker.deleteMarker();
+
+
+        File file = new File(DynmapBannerGenerator.DYNMAP_ICONS_PATH + markerName + ".png");
+        System.out.println("Empire banner File path: " +  file.toString() + "; Exists?: " + file.exists());
+        if(!file.exists()){
+            String newName = "";
+            switch (faction.getStateType()){
+                case VASSAL:
+                    newName = FactionsMod.ANCAP_VASSAL_BANNER.toString()
+                        .replaceAll("^(.*[\\\\\\/])", "").replaceAll(".png", "");
+                    break;
+                case EMPIRE:
+                    newName = FactionsMod.ANCAP_METROPOLY_BANNER.toString()
+                        .replaceAll("^(.*[\\\\\\/])", "").replaceAll(".png", "");
+                    break;
+                case FREE_STATE:
+                    newName = FactionsMod.ANCOM_BANNER.toString().replaceAll("^(.*[\\\\\\/])", "").replaceAll(".png", "");
+                    break;
+            };
+
+            MarkerIcon icon2 = markerApi.getMarkerIcon(newName);
+            if(icon2==null) icon2 = generateIcon(faction.getID() + "_empire", markerName);
+            empireMarkerSet.createMarker(markerName, faction.getName(), dimensionTagToID(home.level), home.x, home.y, home.z, icon2, true);
+            System.out.println("Failed to find the regional marker, attempt to create: " + newName);
+            return;
         }
+
+        MarkerIcon icon = generateIcon(faction.getID() + "_empire", markerName);
+
         empireMarkerSet.createMarker(markerName, faction.getName(), dimensionTagToID(home.level), home.x, home.y, home.z, icon, true);
+        System.out.println("Successfully created a marker icon!");
+
     }
 
-    public MarkerIcon generateIcon(Faction faction, boolean region){
-        Empire empire = Empire.getEmpireByFaction(faction.getID());
+    @Nullable
+    public MarkerIcon generateIcon(String id, String filename){
         MarkerIcon markerIcon = null;
-        if(faction.isAdmin()){
-            try {
-                markerIcon = markerApi.createMarkerIcon(faction.getID() + "_admin", faction.getID() + "_admin", new FileInputStream(faction.getRegionBannerLocation()));
-            } catch (FileNotFoundException ignored){}
-            return markerIcon;
+        String path = DynmapBannerGenerator.DYNMAP_ICONS_PATH + filename + ".png";
+        if(!new File(path).exists()) {
+            System.out.println("File not found: " + path);
+            return null;
         }
-        if(empire == null || region){
-            String filename = faction.getEmpireBannerLocation() == null ?  FactionsMod.ANCOM_BANNER.toString() : faction.getEmpireBannerLocation();
-            try {
-                markerIcon = markerApi.createMarkerIcon(faction.getID() + "_minor", faction.getID() + "_minor", new FileInputStream(filename));
-            } catch (FileNotFoundException ignored) {
-            }
-            return markerIcon;
-        }
-        if(empire.isVassal(faction.getID())){
-
-            String filename = faction.getEmpireBannerLocation() == null ? FactionsMod.ANCAP_VASSAL_BANNER.toString() : faction.getEmpireBannerLocation();
-            try {
-                markerIcon = markerApi.createMarkerIcon( empire.getID() +"_vassal", empire.getID() + "_vassal", new FileInputStream(filename));
-            } catch (FileNotFoundException ignored){}
-            return markerIcon;
-        }
-
-        String filename = faction.getEmpireBannerLocation() == null ? FactionsMod.ANCAP_VASSAL_BANNER.toString() : faction.getEmpireBannerLocation();
         try {
-            markerIcon = markerApi.createMarkerIcon(empire.getID() + "_metropoly", empire.getID() + "_metropoly", new FileInputStream(filename));
-        } catch (FileNotFoundException ignored){}
+            markerIcon = markerApi.createMarkerIcon(id, id, new FileInputStream(path));
+        } catch (FileNotFoundException ignored){
+            System.out.println("File not found: " + path);
+            return null;
+        }
         return markerIcon;
 
     }
@@ -431,19 +437,33 @@ public class DynmapWrapper {
         }
 
         MarkerIcon icon = markerApi.getMarkerIcon(markerName);
-        if(icon != null){
-            icon.deleteIcon();
-        }
-        icon = generateIcon(faction, false);
-
-
-
         Marker marker = regionMarkerSet.findMarker(markerName);
+
 
         if (marker != null)
             marker.deleteMarker();
-        regionMarkerSet.createMarker(markerName, faction.getName(), dimensionTagToID(home.level), home.x, home.y, home.z, icon, true);
-    }
+
+        File file = new File(DynmapBannerGenerator.DYNMAP_ICONS_PATH + markerName + ".png");
+
+        if(!file.exists()){
+            String newName = FactionsMod.ANCOM_BANNER.toString()
+                    .replaceAll("^(.*[\\\\\\/])", "").replaceAll(".png", "");
+            MarkerIcon icon2 = markerApi.getMarkerIcon(newName);
+
+            if(icon2==null) icon2 = generateIcon(faction.getID() + "_region", newName);
+            regionMarkerSet.createMarker(markerName, faction.getName(), dimensionTagToID(home.level), home.x, home.y, home.z, icon2, true);
+            System.out.println("Failed to find the regional marker, attempt to create: " + newName);
+            return;
+        }
+
+        if(icon!=null) {icon.deleteIcon();
+            icon = generateIcon(faction.getID() + "_region", markerName);}
+        System.out.println("Successfully created Regional marker!");
+
+        marker = regionMarkerSet.createMarker(markerName, faction.getName(), dimensionTagToID(home.level), home.x, home.y, home.z, icon, true);
+
+
+        }
 
     private String dimensionTagToID(String level) { // TODO: allow custom dimensions
         if (level.equals("minecraft:overworld")) return "world";
@@ -455,9 +475,11 @@ public class DynmapWrapper {
     private String getInfo(Faction faction) {
         if(faction == null) return "";
         if(faction.getUsers().isEmpty()) return "";
-        String ownerName = getOwner(faction).getName();
-        if(ownerName == null) return "";
-        return "Название города: " + faction.getName() + "<br>"
+        User owner = getOwner(faction);
+        if(owner == null) return "";
+        String ownerName = owner.getName();
+        String neededLoop = faction.getName().length() >= 11 ? "<span>"+faction.getName()+"</span>" : faction.getName();
+        return "<div class=\"town-title\">" + neededLoop + "</div><br>"
                 + getEmpireStatus(faction) + "<br>"
                 + "Описание: " + faction.getDescription() + "<br>"
                 + "Казна: " + faction.getPower() + " ₽<br>"
@@ -468,7 +490,7 @@ public class DynmapWrapper {
     }
 
     public User getOwner(Faction faction){
-        return faction.getUsers().stream().filter(user -> user.rank == User.Rank.OWNER).findFirst().orElse(null);
+        return faction.getUsers().stream().filter(user -> user.getRank() == User.Rank.OWNER).findFirst().orElse(null);
     }
 
     private String getEmpireStatus(Faction faction){
@@ -478,13 +500,13 @@ public class DynmapWrapper {
         if(empire.isMetropoly(faction.getID())) {
             return "Столица империи: [" + empire.name + "]<br>" + getEmpireCapitalLore(faction) + "<br>";
         }
-        return "Вассал империи [" + empire.name + "]<br>Метрополия: [" + Faction.get(empire.metropolyID).getName() + "]<br>";
+        return "Вассал империи [" + empire.name + "]<br>Метрополия: [" + Faction.get(empire.getMetropolyID()).getName() + "]<br>";
     }
 
     private String getEmpireCapitalLore(Faction faction) {
-        User owner = faction.getUsers().stream().filter(user -> user.rank == User.Rank.OWNER).findFirst().orElse(null);
+        User owner = faction.getUsers().stream().filter(user -> user.getRank() == User.Rank.OWNER).findFirst().orElse(null);
         String leaderName = owner == null ? "Всепоглощающая Пустота" : owner.getName();
-        List<User> regents = faction.getUsers().stream().filter(user -> user.rank == User.Rank.LEADER).toList();
+        List<User> regents = faction.getUsers().stream().filter(user -> user.getRank() == User.Rank.LEADER).toList();
         int size = regents.size();
         String regentsString = "";
         for(int i = 0; i<size; i++){
@@ -519,21 +541,18 @@ public class DynmapWrapper {
                 "</div>";
     }
     public static String getEmperorDefaultMainTitleSuffix(Empire empire){
-        String suffix = "Граф of " + empire.name;
+        String suffix = "Герцог of " + empire.name;
         int greatness = empire.getVassalsIDList().size();
+
         if(greatness > 3){
-            suffix = "Герцог of " + empire.name;
+            suffix = "Царь of " + empire.name;
         }
 
         if(greatness > 6){
-            suffix = "Князь of всея " + empire.name;
-        }
-
-        if(greatness > 9){
             suffix = "Царь of всея " + empire.name;
         }
 
-        if(greatness > 12){
+        if(greatness > 9){
             suffix = "Император и Самодержец всея " + empire.name;
         }
 
@@ -566,7 +585,7 @@ public class DynmapWrapper {
 
     public static String getDefaultLocaleForEmperorTitleHandlers(Empire empire) {
         List<UUID> factionsUnsorted = empire.getVassalsIDList();
-        factionsUnsorted.add(empire.metropolyID);
+        factionsUnsorted.add(empire.getMetropolyID());
 
 
         factionsUnsorted.sort((o1, o2) -> {

@@ -179,4 +179,19 @@ public class Config {
 
     @SerializedName("powerToCreateEmpire")
     public int POWER_TO_CREATE_EMPIRE = 1024;
+
+    @SerializedName("maxVassalTax")
+    public float MAX_VASSAL_TAX = 0.33f;
+
+    @SerializedName("minVassalTax")
+    public float MIN_VASSAL_TAX = 0.03f;
+
+    @SerializedName("vassalTaxPerChunkMultiplier")
+    public float VASSAL_TAX_PER_CHUNK_MULTIPLIER = 0.64f;
+
+    @SerializedName("empireBaseTaxPerVassal")
+    public int EMPIRE_TAX_PER_VASSAL = 4;
+    @SerializedName("baseEmpireTax")
+    public int BASE_EMPIRE_TAX = 12;
+
 }

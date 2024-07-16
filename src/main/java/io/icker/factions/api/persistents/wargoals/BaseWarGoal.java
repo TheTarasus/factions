@@ -57,21 +57,6 @@ public class BaseWarGoal extends GenericWarGoal{
 
     @Override
     public void stopTheWar(WarGoal goal) {
-        Faction sourceFaction = Faction.get(goal.agressor.id);
-        Empire sourceEmpire = sourceFaction == null ? Empire.getEmpire(goal.agressor.id) : Empire.getEmpireByFaction(sourceFaction.getID());
-
-
-        if(sourceEmpire != null)    sourceEmpire.setWarGoal(null);
-        if(sourceFaction != null)   sourceFaction.setActiveWargoal(null);
-
-
-        Faction targetFaction = Faction.get(goal.victim.id);
-        Empire targetEmpire = targetFaction == null ? Empire.getEmpire(goal.victim.id) : Empire.getEmpireByFaction(targetFaction.getID());
-
-
-        if(targetEmpire != null)    targetEmpire.setWarGoal(null);
-        if(targetFaction != null)   targetFaction.setActiveWargoal(null);
-
         goal.remove();
     }
 
@@ -85,7 +70,6 @@ public class BaseWarGoal extends GenericWarGoal{
         Faction faction = state.getCapitalState();
         return faction.getCapitulated();
     }
-
 
     @Override
     public void destroy(Faction faction) {

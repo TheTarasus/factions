@@ -39,7 +39,7 @@ public class JoinCommand implements Command {
             return 0;
         }
 
-        if (invited) faction.invites.remove(player.getName().getString());
+        if (invited) faction.removeInvite(player.getName().getString());
         User.get(player.getName().getString()).joinFaction(faction.getID(), User.Rank.MEMBER);
         source.getServer().getPlayerManager().sendCommandTree(player);
 

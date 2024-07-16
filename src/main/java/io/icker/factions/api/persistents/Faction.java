@@ -52,7 +52,7 @@ public class Faction implements StateTypeable{
     public Jail jail;
 
     @Field("Invites")
-    public ArrayList<String> invites = new ArrayList<String>();
+    private ArrayList<String> invites = new ArrayList<String>();
 
     @Field("Relationships")
     private ArrayList<Relationship> relationships = new ArrayList<Relationship>();
@@ -74,9 +74,17 @@ public class Faction implements StateTypeable{
     @Field("capitulationPoints")
     public int capitulationPoints = 0;
 
+    @Field("empireTax")
+    private float empireTax = 0;
+
     @Field("isCapitulated")
     private boolean isCapitulated = false;
 
+    @Field("dotatedRegionUUID")
+    private UUID dotatedRegion = Util.NIL_UUID;
+
+    @Field("dotatedPower")
+    private int dotatedPower = -1;
     public boolean getCapitulated(){
         return this.isCapitulated;
     }
@@ -91,7 +99,7 @@ public class Faction implements StateTypeable{
     public GenericWarGoal warGoalListener;
 
     public void setEmpireBannerLocation(File file){
-        this.empireBannerLocation = file.toString();
+        this.regionBannerLocation = file.toString();
         FactionEvents.BANNER_UPDATE.invoker().onBannerUpdate(this);
     }
 
@@ -104,8 +112,8 @@ public class Faction implements StateTypeable{
         return this.empireBannerLocation;
     }
 
-    public Faction(String name, String description, String motd, Formatting color, boolean open, int power, boolean admin, long relationsLastUpdate, Jail jail, String empireBannerLocation, String regionBannerLocation, int capitulationPoints, boolean isCapitulated) {
-        this.id = UUID.randomUUID();
+    public Faction(UUID id, String name, String description, String motd, Formatting color, boolean open, int power, boolean admin, long relationsLastUpdate, Jail jail, String empireBannerLocation, String regionBannerLocation, int capitulationPoints, boolean isCapitulated, UUID dotatedRegion, int dotatedPower) {
+        this.id = id;
         this.name = name;
         this.motd = motd;
         this.description = description;
@@ -117,14 +125,26 @@ public class Faction implements StateTypeable{
         Safe.add(safe);
         this.relationsLastUpdate = relationsLastUpdate;
         this.jail = jail;
+        this.capitulationPoints = capitulationPoints;
+
         this.empireBannerLocation = empireBannerLocation == null ? FactionsMod.ANCOM_BANNER.toString() : empireBannerLocation;
         this.regionBannerLocation = regionBannerLocation == null ? FactionsMod.ANCOM_BANNER.toString() : regionBannerLocation;
-        this.capitulationLimit = (int) Math.sqrt((double) this.getClaims().size()) * this.getUsers().size();
-        this.capitulationLimit *= this.getStateType() == WarGoal.StateType.EMPIRE ? 1 + (this.findAllUsersOfEmpire().size() / 25) : 1;
-        this.capitulationLimit = this.isAdmin() ? Integer.MAX_VALUE : this.capitulationLimit;
-        this.capitulationPoints = capitulationPoints;
+
+
+        this.updateCapitulationLimit();
+
         this.isCapitulated = this.capitulationPoints > capitulationLimit;
         this.goal = WarGoal.activeWarWithState(this.getCapitalState());
+        this.dotatedRegion = dotatedRegion;
+        this.dotatedPower = dotatedPower;
+        this.removeNulledRelationships();
+    }
+
+    private void updateCapitulationLimit() {
+        System.out.println("Capitulation Limit for town " + this.name + " is: " + this.capitulationLimit);
+        this.capitulationLimit = this.getUsers().size() * 5;
+        this.capitulationLimit *= this.getStateType() == WarGoal.StateType.EMPIRE ? 1 + (this.findAllUsersOfEmpire().size() / 25) : 1;
+        this.capitulationLimit = this.isAdmin() ? Integer.MAX_VALUE : this.capitulationLimit;
     }
 
     public void payWarTaxes(){
@@ -144,15 +164,16 @@ public class Faction implements StateTypeable{
     }
 
     public void adjustCapitulationPoints(int points){
+        this.updateCapitulationLimit();
         if(this.getActiveWargoal() == null){
             this.isCapitulated = false;
             this.capitulationPoints = 0;
             return;
         }
         this.capitulationPoints += points;
-        WarGoal goal = this.getActiveWargoal();
         if(this.capitulationPoints > this.capitulationLimit) {
             this.isCapitulated = true;
+            this.getActiveWargoal().processingWarGoal.destroy(this);
         }
     }
 
@@ -193,6 +214,7 @@ public class Faction implements StateTypeable{
         return id;
     }
 
+    @Override
     public String getName() {
         return name;
     }
@@ -275,6 +297,41 @@ public class Faction implements StateTypeable{
         return newPower - oldPower;
     }
 
+    public void taxForLand(){
+        if(!this.getStateType().equals(WarGoal.StateType.VASSAL)) {modifiedTaxForLand(1);return;}
+        if(this.getCapitalState().getDotations(this) < 0) {modifiedTaxForLand(FactionsMod.CONFIG.VASSAL_TAX_PER_CHUNK_MULTIPLIER);return;}
+        modifiedTaxForLand(0.1f);
+    }
+
+    public void modifiedTaxForLand(float modifier){
+
+    }
+
+    public int getDotations(Faction faction){
+        if(!this.getStateType().equals(WarGoal.StateType.EMPIRE)) return -1;
+        return this.dotatedRegion.equals(faction.getID()) ? this.dotatedPower : -1;
+    }
+
+    public void resetDotations(){
+        this.dotatedRegion = Util.NIL_UUID;
+        this.dotatedPower = -1;
+    }
+
+    public void taxToEmpire(){
+        boolean isNotTaxor = this.getStateType() != WarGoal.StateType.VASSAL;
+        if(isNotTaxor) return;
+        int dotations = this.getCapitalState().getDotations(this);
+        if(dotations >= 0) {
+            this.getCapitalState().adjustPower(-dotations);
+            this.adjustPower(dotations);
+            return;
+        }
+        float percent = this.getCapitalState().getEmpireTax();
+        int adjusted = (int) (this.power * percent);
+        int incame = this.adjustPower(-adjusted);
+        this.getCapitalState().adjustPower(-incame);
+    }
+
     public List<User> getUsers() {
         return User.getByFaction(id);
     }
@@ -298,7 +355,7 @@ public class Faction implements StateTypeable{
     }
 
     public boolean isInvited(String playerName) {
-        return invites.stream().anyMatch(invite -> invite.equals(playerName));
+        return getInvites().stream().anyMatch(invite -> invite.equals(playerName));
     }
 
     public Home getHome() {
@@ -310,7 +367,7 @@ public class Faction implements StateTypeable{
                 .filter(claim ->
                         claim.outpost.index == index).findFirst().get();
         Claim.Outpost pos = null;
-        if(origin != null) pos = origin.outpost;
+        pos = origin.outpost;
         pos = pos == null ? new Claim.Outpost((int) home.x >> 4, (int) home.z >> 4, new BlockPos(home.x, home.y, home.z), 0, home.level) : pos;
         return pos;
     }
@@ -319,14 +376,24 @@ public class Faction implements StateTypeable{
         return (int) this.getClaims().stream().filter(Claim::isOutpost).count()+1;
     }
 
+    public void removeNulledRelationships(){
+        relationships = new ArrayList<>(relationships
+            .stream().filter(
+                relationship -> {
+                if(relationship == null) return false;
+                return Faction.get(relationship.source) != null && relationship.target != null;
+                }
+            ).toList());
+    }
+
     public void setHome(Home home) {
         this.home = home;
         FactionEvents.SET_HOME.invoker().onSetHome(this, home);
     }
 
     public Relationship getRelationship(UUID target) {
-        if(Empire.isAnyVassal(this.id)) return null;
-        return relationships.stream().filter(rel -> rel.target.equals(target)).findFirst().orElse(new Relationship(target, 0));
+        if(Empire.isAnyVassal(target) && !(Empire.isVassalOfFaction(this.id, target) || Empire.isVassalOfFaction(target, this.id))) return new Relationship(this.id, target, 0);
+        return relationships.stream().filter(rel -> rel.target.equals(target)).findFirst().orElse(new Relationship(this.id, target, 0));
     }
 
     public Relationship getReverse(Relationship rel) {
@@ -335,7 +402,7 @@ public class Faction implements StateTypeable{
 
     public boolean isMutualAllies(UUID target) {
         Relationship rel = getRelationship(target);
-        return rel.status == Relationship.Status.ALLY && getReverse(rel).status == Relationship.Status.ALLY;
+        return rel.getStatus() == Relationship.Status.ALLY && getReverse(rel).getStatus() == Relationship.Status.ALLY;
     }
 
     public List<Relationship> getMutualAllies() {
@@ -343,11 +410,11 @@ public class Faction implements StateTypeable{
     }
 
     public List<Relationship> getEnemiesWith() {
-        return relationships.stream().filter(rel -> rel.status == Relationship.Status.ENEMY).toList();
+        return relationships.stream().filter(rel -> rel.getStatus() == Relationship.Status.ENEMY).toList();
     }
 
     public List<Relationship> getEnemiesOf() {
-        return relationships.stream().filter(rel -> getReverse(rel).status == Relationship.Status.ENEMY).toList();
+        return relationships.stream().filter(rel -> getReverse(rel).getStatus() == Relationship.Status.ENEMY).toList();
     }
 
     public void removeRelationship(UUID target) {
@@ -355,14 +422,30 @@ public class Faction implements StateTypeable{
     }
 
     public void setRelationship(Relationship relationship) {
-        if (getRelationship(relationship.target) != null) {
+        System.out.println("Relationship points are: " + relationship.points);
+        if(relationship.target.equals(this.getID())){
             removeRelationship(relationship.target);
+            System.out.println("Relationship target is equal to source!");
+            return;
         }
-        if (relationship.status != Relationship.Status.NEUTRAL)
+        if (relationship.getStatus() != Relationship.Status.NEUTRAL) {
             relationships.add(relationship);
+            System.out.println("Relationship status is: " + relationship.getStatus());
+            return;
+        }
+
+        System.out.println("Relationship is neutral!");
     }
 
     public void remove() {
+        if(this.getStateType() == WarGoal.StateType.EMPIRE) {
+            Empire empire = Empire.getEmpireByFaction(this.id);
+            if(empire != null) empire.remove();
+        }
+        if(this.getStateType() == WarGoal.StateType.VASSAL){
+            Empire empire = Empire.getEmpireByFaction(this.getID());
+            if(empire != null) empire.removeVassal(this.getID());
+        }
         FactionsManager.playerManager.getServer().getPlayerManager().broadcast(
                 new LiteralText("§eГород §9" + this.name + " §eрасформирован!"), MessageType.CHAT, Util.NIL_UUID
         );
@@ -374,9 +457,10 @@ public class Faction implements StateTypeable{
 
         Empire empire = Empire.getEmpire(id);
         if(empire != null) {
-            if(empire.metropolyID == this.id) {
+            if(empire.getMetropolyID() == this.id) {
                 empire.remove();
             }
+            empire.removeVassal(this.id);
         }
         STORE.remove(id);
         FactionEvents.DISBAND.invoker().onDisband(this);
@@ -391,25 +475,25 @@ public class Faction implements StateTypeable{
     public WarGoal.StateType getStateType() {
         Empire empire = Empire.getEmpireByFaction(this.id);
         if(empire == null) return WarGoal.StateType.FREE_STATE;
-        return empire.isVassal(id) ? WarGoal.StateType.VASSAL : WarGoal.StateType.EMPIRE;
+        return empire.isMetropoly(this.id) ? WarGoal.StateType.EMPIRE : WarGoal.StateType.VASSAL;
     }
 
     @Override
     public Faction getCapitalState() {
+        Faction result;
         WarGoal.StateType type = this.getStateType();
-        switch (type){
-            case VASSAL -> {
+        switch (type) {
+            case VASSAL:
                 Empire empire = Empire.getEmpireByFaction(this.getID());
-                return Faction.get(empire.metropolyID);
-            }
-            default -> {
+                return Faction.get(empire.getMetropolyID());
+            default:
                 return this;
-            }
         }
     }
 
     public void triggerPrisonerReleaseBeforeWar(StateTypeable faction){
         WarGoal.StateType type = this.getStateType();
+        if(this.jail == null) return;
         switch (type){
             case VASSAL, EMPIRE -> {
                 Empire empire = Empire.getEmpireByFaction(this.getID());
@@ -426,10 +510,12 @@ public class Faction implements StateTypeable{
             case VASSAL, EMPIRE -> {
                 Empire empire = Empire.getEmpireByFaction(this.getID());
                 List<UUID> members = empire.getVassalsIDList();
-                members.add(empire.metropolyID);
+                members.add(empire.getMetropolyID());
                 List<User> users = new ArrayList<>();
                 for(UUID id : members){
-                    users.addAll(Faction.get(id).getUsers());
+                    Faction faction = Faction.get(id);
+                    if(faction == null) continue;
+                    users.addAll(faction.getUsers());
                 }
                 return users;
             }
@@ -449,5 +535,31 @@ public class Faction implements StateTypeable{
         }
         this.goal = goal;
         this.warGoalListener = GenericWarGoal.getWargoal(goal.goalType);
+    }
+
+    public float getEmpireTax() {
+        if(this.getStateType() != WarGoal.StateType.FREE_STATE) return 0;
+        return empireTax;
+    }
+
+    public void setEmpireTax(float empireTax) {
+        if(this.getStateType() != WarGoal.StateType.FREE_STATE) {this.empireTax = 0; return;}
+        this.empireTax = Math.max(FactionsMod.CONFIG.MIN_VASSAL_TAX, Math.min(FactionsMod.CONFIG.MAX_VASSAL_TAX, empireTax));
+    }
+
+    public ArrayList<String> getInvites() {
+        return invites;
+    }
+
+    public void addInvite(String invite){
+        if(!this.invites.contains(invite)) this.invites.add(invite);
+    }
+
+    public void removeInvite(String invite){
+        this.invites.remove(invite);
+    }
+
+    public void setInvites(ArrayList<String> invites) {
+        this.invites = invites;
     }
 }

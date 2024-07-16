@@ -13,4 +13,5 @@ public interface StateTypeable {
     public WarGoal getActiveWargoal();
 
     public UUID getID();
+    public String getName();
 }

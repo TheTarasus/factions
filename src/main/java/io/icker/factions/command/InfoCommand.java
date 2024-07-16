@@ -11,9 +11,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 
 import io.icker.factions.FactionsMod;
-import io.icker.factions.api.persistents.Empire;
-import io.icker.factions.api.persistents.Faction;
-import io.icker.factions.api.persistents.User;
+import io.icker.factions.api.persistents.*;
 import io.icker.factions.util.Command;
 import io.icker.factions.util.Message;
 import net.minecraft.server.command.CommandManager;
@@ -80,13 +78,13 @@ public class InfoCommand implements Command {
             (FactionsMod.CONFIG.MAX_FACTION_SIZE != -1 ? "/" + FactionsMod.CONFIG.MAX_FACTION_SIZE : (" Количество участников:"));
 
         String leaderText = Formatting.WHITE +
-                String.valueOf(users.stream().filter(u -> u.rank == User.Rank.LEADER).count()) + Formatting.GRAY + " Лидеров";
+                String.valueOf(users.stream().filter(u -> u.getRank() == User.Rank.LEADER).count()) + Formatting.GRAY + " Лидеров";
 
         String commanderText = Formatting.WHITE +
-                String.valueOf(users.stream().filter(u -> u.rank == User.Rank.COMMANDER).count()) + Formatting.GRAY + " Коммандиров";
+                String.valueOf(users.stream().filter(u -> u.getRank() == User.Rank.COMMANDER).count()) + Formatting.GRAY + " Коммандиров";
 
         String sheriffText = Formatting.WHITE +
-                String.valueOf(users.stream().filter(u -> u.rank == User.Rank.SHERIFF).count()) + Formatting.GRAY + " Шерифов";
+                String.valueOf(users.stream().filter(u -> u.getRank() == User.Rank.SHERIFF).count()) + Formatting.GRAY + " Шерифов";
 
         UserCache cache = player.getServer().getUserCache();
         String usersList = users.stream()
@@ -98,10 +96,25 @@ public class InfoCommand implements Command {
             .map(fac -> fac.getColor() + fac.getName())
             .collect(Collectors.joining(Formatting.GRAY + ", "));
 
+        User user = User.get(player.getName().getString());
+        boolean isAtWar = WarGoal.activeWarWithState(faction) != null;
+        boolean isLegit = !isAtWar && User.Rank.OWNER.equals(user.getRank());
+
+        Message enemiesDeclareWar = new Message("Враги этого государства (Можно объявить войну): ");
+
         String enemiesWith = Formatting.GRAY + faction.getEnemiesWith().stream()
             .map(rel -> Faction.get(rel.target))
             .map(fac -> fac.getColor() + fac.getName())
             .collect(Collectors.joining(Formatting.GRAY + ", "));
+
+        if(isLegit){
+            for(Relationship targetRel : faction.getEnemiesWith()){
+                Faction target = Faction.get(targetRel.target);
+                String facName = target.getColor() + target.getName();
+                Message addTo = new Message(facName +", ").hover("§cНажми, чтобы выбрать цель войны").click("/factions declare goals\"" + target.getName() + "\"");
+                enemiesDeclareWar = enemiesDeclareWar.add(addTo);
+            }
+        }
 
         String enemiesOf = Formatting.GRAY + faction.getEnemiesOf().stream()
             .map(rel -> Faction.get(rel.target))
@@ -132,21 +145,22 @@ public class InfoCommand implements Command {
             new Message("Союзники: ")
                 .add(mutualAllies)
                 .send(player, false);
-        if (enemiesWith.length() > 0)
-            new Message("Враги этого государства: ")
-                .add(enemiesWith)
-                .send(player, false);
+        if (enemiesWith.length() > 0) {
+            if (isLegit) enemiesDeclareWar.send(player, false);
+            else new Message("Враги этого государства: ")
+                    .add(enemiesWith)
+                    .send(player, false);
+        }
         if (enemiesOf.length() > 0)
             new Message("Является врагом для других государств: ")
                 .add(enemiesOf)
                 .send(player, false);
         Empire sourceEmpire = Empire.getEmpireByFaction(faction.getID());
         if(sourceEmpire != null){
-            String message = sourceEmpire.isMetropoly(sourceEmpire.id) ? "Является вассалом государства " + Faction.get(sourceEmpire.metropolyID).getName() + " и членом империи " + sourceEmpire.name : "Является столицей империи " + sourceEmpire.name;
+            String message = sourceEmpire.isMetropoly(sourceEmpire.id) ? "Является вассалом государства " + Faction.get(sourceEmpire.getMetropolyID()).getName() + " и членом империи " + sourceEmpire.name : "Является столицей империи " + sourceEmpire.name;
             new Message(message).format(Formatting.GOLD).send(player, false);
         }
 
-        User user = User.get(player.getName().getString());
         UUID userFaction = user.isInFaction() ? user.getFaction().getID() : null;
         if (faction.getID().equals(userFaction))
             new Message("Ваше звание: ")
@@ -167,7 +181,7 @@ public class InfoCommand implements Command {
                 .then(CommandManager.literal("faction")
                         .executes(this::self)
                         .then(
-                                CommandManager.argument("faction", StringArgumentType.greedyString())
+                                CommandManager.argument("faction", StringArgumentType.string())
                                         .requires(Requires.hasPerms("factions.info.other", 0))
                                         .suggests(Suggests.allFactions())
                                         .executes(this::any)

@@ -1,5 +1,23 @@
 /* required styles */
 
+@font-face {
+    font-family: 'minecraft';
+    font-style: normal;
+    font-weight: normal;
+    font-display: auto;
+    src: url('https://courtofrasus.ru/wp-content/uploads/2023/12/minecraft-1.eot');
+    src: url('https://courtofrasus.ru/wp-content/uploads/2023/12/minecraft-1.eot?#iefix') format('embedded-opentype'), url('https://courtofrasus.ru/wp-content/uploads/2023/12/minecraft-2.woff2') format('woff2'), url('https://courtofrasus.ru/wp-content/uploads/2023/12/minecraft-1.woff') format('woff'), url('https://courtofrasus.ru/wp-content/uploads/2023/12/minecraft-2.ttf') format('truetype'), url('https://courtofrasus.ru/wp-content/uploads/2023/12/minecraft-2.svg#minecraft') format('svg');
+}
+
+@font-face {
+    font-family: 'minecraft';
+    font-style: normal;
+    font-weight: bold;
+    font-display: auto;
+    src: url('https://courtofrasus.ru/wp-content/uploads/2023/12/minecraft_title_cyrillic-2.eot');
+    src: url('https://courtofrasus.ru/wp-content/uploads/2023/12/minecraft_title_cyrillic-2.eot?#iefix') format('embedded-opentype'), url('https://courtofrasus.ru/wp-content/uploads/2023/12/minecraft_title_cyrillic-1.woff2') format('woff2'), url('https://courtofrasus.ru/wp-content/uploads/2023/12/minecraft-1.woff') format('woff'), url('https://courtofrasus.ru/wp-content/uploads/2023/12/minecraft_title_cyrillic-1.ttf') format('truetype'), url('https://courtofrasus.ru/wp-content/uploads/2023/12/minecraft_title_cyrillic-2.svg#minecraft') format('svg');
+}
+
 .leaflet-pane,
 .leaflet-tile,
 .leaflet-marker-icon,
@@ -464,68 +482,85 @@ svg.leaflet-image-layer.leaflet-interactive path {
 /* popup */
 
 .leaflet-popup {
-	position: absolute;
-	margin-bottom: -278px;
+	--figa: rect(100% 100% 100% 100%);
+	position: relative;
+	margin-bottom: 10px;
+	border-radius: 16px;
+	width: 120%;
+	margin-left: auto;
+	margin-right: auto;
+
+	;
+	border: 10px solid #000000aa;
+	outline: 2px ridge #efff00d1;
 	}
 .leaflet-popup-content-wrapper {
-	padding: 1px;
-	text-align: left;
-	text-anchor: end;
-	border-radius: 12px;
-	}
+	padding: 0 0 0 5%;
+	text-align: start;
+	text-anchor: start;
+	border-radius: 8px;
+  }
 .leaflet-popup-content {
-	margin: 13px 19px;
-	line-height: 1.2;
+	margin: 14px 0;
+	line-height: 1.4;
 	}
 .leaflet-popup-content p {
-	margin: 18px 0;
+	margin: 14px 8px;
 	}
 
 .leaflet-popup-tip-container {
-	width: 40px;
-	height: 20px;
+	width: 112px;
+	height: 36px;
 	position: absolute;
-	left: 50%;
-	top: -20px;
-	margin-left: -20px;
+	left: 41%;
+	top: -36px;
+	margin-left: -28px;
 	overflow: hidden;
 	pointer-events: none;
 	}
 .leaflet-popup-tip {
-	width: 17px;
-	height: 17px;
+	width: 48px;
+	height: 48px;
 	padding: 1px;
 
-	margin: 10px auto 0;
+	margin: 10px auto 10px;
 	pointer-events: auto;
 
 	-webkit-transform: rotate(45deg);
 	   -moz-transform: rotate(45deg);
 	    -ms-transform: rotate(45deg);
 	        transform: rotate(45deg);
-	}
+}
+
 .leaflet-popup-content-wrapper,
 .leaflet-popup-tip {
-	background: white;
-	color: #333;
-	box-shadow: 0 3px 14px rgba(0,0,0,0.4);
+	background: #181818;
+	background: radial-gradient(ellipse farthest-corner at center center, #181818 20%, #000000 100%);
+	background: -webkit-radial-gradient(ellipse farthest-corner at center center, #181818 20%, #000000 100%);
+	background: -moz-radial-gradient(ellipse farthest-corner at center center, #181818 20%, #000000 100%);
+	color: #ff0;
+	text-shadow: 2.5px 2.5px 1px #cc0000;
+	border: 2px solid #ffff00d9;
+
 	}
 .leaflet-container a.leaflet-popup-close-button {
 	position: absolute;
-	top: 0;
-	right: 0;
-	padding: 4px 4px 0 0;
-	border: none;
+	top: -10.5px;
+	right: -10.5px;
+	margin: 4px;
+	padding: 4px 3px 4px 4.5px;
+	border-radius: 5px;
+	border: #ffffff8a 2px solid;
 	text-align: center;
-	width: 18px;
+	width: 14px;
 	height: 14px;
-	font: 16px/14px "Minecraft RUS";
-	color: #757575;
+	font: 18px/14px "Minecraft RUS";
+	color: #fff;
 	text-decoration: none;
-	background: transparent;
+	background: #ffffff linear-gradient(120deg,#ff0000 0%, #740303 100%);
 	}
 .leaflet-container a.leaflet-popup-close-button:hover {
-	color: #585858;
+	color: #3c3c3c;
 	}
 .leaflet-popup-scrolled {
 	overflow: auto;
@@ -551,7 +586,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .leaflet-oldie .leaflet-control-layers,
 .leaflet-oldie .leaflet-popup-content-wrapper,
 .leaflet-oldie .leaflet-popup-tip {
-	border: 1px solid #999;
+	border: 1px solid #fff;
 	}
 
 
@@ -642,7 +677,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 	}
 
 /* Printing */
-	
+
 @media print {
 	/* Prevent printers from removing background-images of controls. */
 	.leaflet-control {
@@ -1757,4 +1792,70 @@ div.statusmessage {
 
 .accordion-item__trigger:checked + .accordion-item__title + .accordion-item__content {
   display: block;
+}
+
+.town-title{
+	font-weight: bold;
+	font: 12px/40px "Minecraft Title Cyrillic";
+	text-align: center;
+	text-anchor: middle;
+	color: #000;
+
+	text-shadow: 2px 2px 1px #ff0,
+				 -2px -2px 2px #9acc00,
+				  -2px 2px 2px #9acc00,
+				   2px -2px 1px #9acc00;
+	padding-bottom: 16px;
+	letter-spacing: 0.5rem;
+	line-break: anywhere;
+	margin-left: -6%;
+	margin-right: -22%;
+	border-bottom: 1pt groove #ff0;
+	background: rgb(0,0,0);
+    background: linear-gradient(180deg, #0000 70%, rgb(16 196 0 / 81%) 100%);
+	font-size: 1.81em;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+
+.town-title span {
+    display: inline-block;
+    padding-left: 100%;
+    -webkit-animation: scroll 7s infinite cubic-bezier(0, 0, 0.37, 1.05);
+    -moz-animation: scroll 7s infinite linear;
+    animation: scroll 7s infinite linear;
+}
+
+
+
+@-webkit-keyframes scroll {
+    0% {
+        -webkit-transform: translate(0, 0);
+        transform: translate(0, 0);
+    }
+    100% {
+        -webkit-transform: translate(-100%, 0);
+        transform: translate(-100%, 0)
+    }
+}
+
+@-moz-keyframes scroll {
+    0% {
+        -moz-transform: translate(0, 0);
+        transform: translate(0, 0);
+    }
+    100% {
+        -moz-transform: translate(-100%, 0);
+        transform: translate(-100%, 0)
+    }
+}
+
+@keyframes scroll {
+    0% {
+        transform: translate(0, 0);
+    }
+    100% {
+        transform: translate(-100%, 0)
+    }
 }

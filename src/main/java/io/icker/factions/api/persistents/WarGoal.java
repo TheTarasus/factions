@@ -1,10 +1,16 @@
 package io.icker.factions.api.persistents;
 
+import io.icker.factions.api.persistents.wargoals.*;
 import io.icker.factions.database.Database;
 import io.icker.factions.database.Field;
 import io.icker.factions.database.Name;
+import net.minecraft.server.world.ThreadedAnvilChunkStorage;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.*;
+import java.util.concurrent.Executor;
 
 @Name("WarGoal")
 public class WarGoal {
@@ -12,12 +18,18 @@ public class WarGoal {
 
     private static final HashMap<UUID, WarGoal> STORE = Database.load(WarGoal.class, WarGoal::getID);
 
+    public Collection<WarGoal> all(){
+        return STORE.values();
+    }
+
+    public WarGoal(){;} // WarGoal.init<>()
+
     public enum Type {
 
         //Common war goals:
 
         //Liberates some country, or itself:
-        LIBERATE("liberate", "§9[ОСВОБОЖДЕНИЕ]", "Освобождает любого вассала\n(в том числе, самого себя)\nот империи.",true, true, true, false, true, true, Float.POSITIVE_INFINITY, 0.15f, Float.POSITIVE_INFINITY, false),
+        LIBERATE("liberate", "§9[ОСВОБОЖДЕНИЕ]", "Освобождает любого вассала\n(в том числе, самого себя)\nот империи.",false, true, false, false, true, true, Float.POSITIVE_INFINITY, 0.15f, Float.POSITIVE_INFINITY, false),
 
         //Just a dull annex. Doesn't work against empires:
         ANNEX("annex", "§a[АННЕКСИЯ]", "Аннексирует вольное государство.", true, false, true, true, false, false, 0.5f, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY, false),
@@ -29,7 +41,7 @@ public class WarGoal {
         //War goals that can declare only empires:
 
         //Vassalizes the state without changing the leader:
-        SUBJUGATE("subjugate", "§d[ПОДЧИНЕНИЕ]", "Подчиняет свободное государство,\n оставляя его правителя нетронутым", false, false, true, true, false, false, 0.3f, 0.3f, Float.POSITIVE_INFINITY, false),
+        SUBJUGATE("subjugate", "§d[ПОДЧИНЕНИЕ]", "Подчиняет свободное государство,\n оставляя его правителя нетронутым", false, false, true, true, false, false, 0.3f, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY, false),
 
         //Vassalizes the state and changes the government:
         PUPPETING("puppeting", "§5[ВАССАЛИЗАЦИЯ]", "Подчиняет свободное государство\nи устанавливает наместника",false, false, true, true, false, false, 0.4f, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY, true),
@@ -69,11 +81,13 @@ public class WarGoal {
             case VASSAL -> asVassal = true;
             case EMPIRE -> asEmpire = true;
         }
+        System.out.println("The source State("+ sourceType.getCapitalState().getName() +") is a: " + sourceType.getStateType());
         switch (targetType.getStateType()){
             case FREE_STATE -> againstFreeState = true;
             case VASSAL -> againstVassal = true;
             case EMPIRE -> againstEmpire = true;
         }
+        System.out.println("The target State("+ targetType.getCapitalState().getName() +") is a: " + targetType.getStateType());
 
         List<Type> types = Arrays.asList(Type.values());
         List<Type> readyTypes = new ArrayList<>();
@@ -138,10 +152,10 @@ public class WarGoal {
     }
 
     @Field("Agressor")
-    public StateWithType agressor;
+    public UUID agressor;
 
     @Field("Victim")
-    public StateWithType victim;
+    public UUID victim;
 
     @Field("GoalType")
     public Type goalType;
@@ -154,13 +168,18 @@ public class WarGoal {
     @Field("timeOfWarStarted")
     public long timeOfWarStarted;
 
+    public GenericWarGoal processingWarGoal;
+
     public float cost,reverseCost;
     public boolean isValid;
-    public WarGoal(StateTypeable agressor, StateTypeable victim, Type goalType, UUID id, long timeOfWarEnd, long timeOfWarStarted){
-        this(new StateWithType(agressor), new StateWithType(victim), goalType, id, timeOfWarEnd, timeOfWarStarted);
+    @Field("warStarted")
+    public boolean warStarted;
+
+    public WarGoal(StateTypeable agressor, StateTypeable victim, Type goalType, UUID id, long timeOfWarEnd, long timeOfWarStarted, boolean warStarted){
+        this(agressor.getID(), victim.getID(), goalType, id, timeOfWarEnd, timeOfWarStarted, warStarted);
     }
 
-    public WarGoal(StateWithType agressor, StateWithType victim, Type goalType, UUID id, long timeOfWarEnd, long timeOfWarStarted){
+    public WarGoal(UUID agressor, UUID victim, Type goalType, UUID id, long timeOfWarEnd, long timeOfWarStarted, boolean warStarted){
         this.agressor = agressor;
         this.victim = victim;
         this.goalType = goalType;
@@ -174,14 +193,24 @@ public class WarGoal {
         this.reverseCost = calculateCostReverse(findStateTypeable(this.agressor), findStateTypeable(this.victim), goalType);
         if(this.cost == Float.POSITIVE_INFINITY || this.reverseCost == Float.POSITIVE_INFINITY) {this.remove(); return;}
         if(hasSimilarWars(agressor, victim)) {this.remove(); return;}
+        this.processingWarGoal = GenericWarGoal.getWargoal(goalType);
+        if(this.processingWarGoal == null) {System.out.println("[Factions]: WTF? GenericWarGoal is null!"); return;}
+        this.warStarted = warStarted;
+        if(!warStarted) processingWarGoal.initConflict(this);
     }
 
     public WarGoal(StateTypeable agressor, StateTypeable victim, Type goalType){
-        this(agressor, victim, goalType, UUID.randomUUID(), goalType.againstEmpire ? 31L*24L*3600L*1000L : 7L*24L*3600L*1000L, new Date().getTime());
+        this(agressor, victim, goalType, UUID.randomUUID(), goalType.againstEmpire ? new Date().getTime() + 31L*24L*3600L*1000L : new Date().getTime() + 7L*24L*3600L*1000L, new Date().getTime(), false);
     }
 
     public boolean hasSimilarWars(StateWithType first, StateWithType second){
         return STORE.values().stream().anyMatch(wg -> (wg.agressor.equals(first) && wg.victim.equals(second)) || (wg.victim.equals(first) && wg.agressor.equals(second)));
+    }
+
+    public boolean hasSimilarWars(UUID first, UUID second){
+
+
+        return this.hasSimilarWars(new StateWithType(findStateTypeable(first)), new StateWithType(findStateTypeable(second)));
     }
 
     public StateTypeable findReverse(StateTypeable state){
@@ -195,13 +224,25 @@ public class WarGoal {
         return Empire.getEmpire(type.id);
     }
 
+    public StateTypeable findStateTypeable(UUID id){
+        Faction faction = Faction.get(id);
+        if(faction != null) return faction;
+        Empire empire = Empire.getEmpireByFaction(id);
+        if(empire != null) return empire;
+        return Empire.getEmpire(id);
+    }
+
+    public String reverseName(Faction faction){
+        StateTypeable typeable = this.findReverse(faction);
+        return typeable.getName();
+    }
+
     public UUID getID(){
         return this.id;
     }
 
     public static WarGoal findByAnyStates(StateTypeable first, StateTypeable second){
-        StateWithType fType = new StateWithType(first), sType = new StateWithType(second);
-        return STORE.values().stream().filter(wg -> (wg.agressor == fType && wg.victim == sType) || (wg.victim == fType && wg.agressor == sType)).findFirst().orElse(null);
+        return STORE.values().stream().filter(wg -> (wg.agressor.equals(first.getID()) && wg.victim.equals(second.getID())) || (wg.victim.equals(second.getID())&& wg.agressor.equals(first.getID()))).findFirst().orElse(null);
     }
 
     public static WarGoal activeWarWithState(StateTypeable state){
@@ -210,11 +251,11 @@ public class WarGoal {
     }
 
     public boolean isAgressor(StateTypeable state){
-        return this.agressor.id.equals(state.getCapitalState().getID());
+        return this.agressor.equals(state.getCapitalState().getID());
     }
 
     public boolean isVictim(StateTypeable state){
-        return this.victim.id.equals(state.getCapitalState().getID());
+        return this.victim.equals(state.getCapitalState().getID());
     }
 
 
@@ -228,6 +269,8 @@ public class WarGoal {
 
         STORE.remove(this.id);
     }
+
+
 
 
 

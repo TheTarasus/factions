@@ -49,7 +49,7 @@ public class AnnihilateWarGoal extends BaseWarGoal{
 
         if(aggressorVictory) {aggressorVictory(aggressor, victim); return;}
         int power = (int)((float)aggressor.getCapitalState().getPower() * 0.9f);
-        new Message("§aГосударство §6" + aggressor.getCapitalState().getName() + "§a хотело стереть с лица Земли вольный город §6" + victim.getCapitalState().getName() + "§a. Но что-то пошло не по плану, и теперь агрессору придётся платить репарации в размере: §6" + power + "₽").sendToGlobalChat();
+        new Message("§aГосударство §6" + aggressor.getCapitalState().getName() + "§a хотело стереть с лица Земли вольный город §6" + victim.getCapitalState().getName() + "§a. Но что-то пошло не по плану, и теперь агрессору придётся заплатить репарации в размере: §6" + power + "₽").sendToGlobalChat();
         aggressor.getCapitalState().adjustPower(-power);
         victim.getCapitalState().adjustPower(power);
         stopTheWar(goal);

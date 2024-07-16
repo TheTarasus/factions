@@ -3,6 +3,7 @@ package io.icker.factions.core;
 import io.icker.factions.FactionsMod;
 import io.icker.factions.api.events.MiscEvents;
 import io.icker.factions.api.persistents.*;
+import io.icker.factions.util.DynmapWrapper;
 import io.icker.factions.util.Message;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.PacketSender;
@@ -27,7 +28,7 @@ import java.util.TimerTask;
 public class ServerManager {
     public static void register() {
         ServerPlayConnectionEvents.JOIN.register(ServerManager::playerJoin);
-        MiscEvents.ON_SAVE.register(ServerManager::save);
+        ServerLifecycleEvents.SERVER_STOPPING.register(ServerManager::save);
         ServerLifecycleEvents.SERVER_STARTED.register(ServerManager::tax);
     }
 
@@ -44,13 +45,7 @@ public class ServerManager {
                 Date date = new Date();
                 server.getPlayerManager().broadcast(new LiteralText("§9Сейчас: " + date.toString() + ";"), MessageType.CHAT, Util.NIL_UUID);
                 server.getPlayerManager().broadcast(new LiteralText("§9Время собирать налоги!"), MessageType.CHAT, Util.NIL_UUID);
-                server.getPlayerManager().broadcast(new LiteralText("§9В это время, восстанавливаются очки капитуляции."), MessageType.CHAT, Util.NIL_UUID);
-                Faction.all().forEach(faction -> {
-                    faction.adjustPower(-(1 + faction.getClaims().size()* FactionsMod.CONFIG.DAILY_TAX_PER_CHUNK));
-                    if(faction.capitulationPoints > faction.capitulationLimit) return;
-                    List<User> users = faction.getUsers().stream().filter(user -> user.getPrisoner(server) == null).toList();
-                    faction.capitulationPoints -= faction.getStateType() == WarGoal.StateType.EMPIRE ? users.size() * 3 : users.size();
-                });
+                Faction.all().forEach(faction -> faction.adjustPower(-(1 + faction.getClaims().size()* FactionsMod.CONFIG.DAILY_TAX_PER_CHUNK)));
             }
         }, newDate, 24L*3600L*1000L);
         Timer warTimer = new Timer(true);
@@ -58,13 +53,19 @@ public class ServerManager {
             @Override
             public void run() {
                 Date date = new Date();
-                if(date.getHours() > FactionsMod.CONFIG.OFFWAR_HOURS_START || date.getHours() < FactionsMod.CONFIG.OFFWAR_HOURS_END) return;
+                Date startDate = new Date();
+                startDate.setHours(FactionsMod.CONFIG.OFFWAR_HOURS_START);
+                Date endDate = new Date();
+                endDate.setHours(FactionsMod.CONFIG.OFFWAR_HOURS_END);
+                if(startDate.before(date) && endDate.after(date)) return;
                 Faction.all().forEach(f -> {
                     f.payWarTaxes();
+                    if(f.jail == null) return;
                     f.jail.updateWarPunishment();
                 });
+                new Message("Сейчас:"+date.toString()+"; Пришло время собирать военные сборы.").sendToGlobalChat();
             }
-        }, 3600000L, 3600000L);
+        }, 60000L, 60000L);
 
     }
 

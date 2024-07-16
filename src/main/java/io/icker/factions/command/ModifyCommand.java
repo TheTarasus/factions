@@ -329,7 +329,7 @@ public class ModifyCommand implements Command {
             new Message("You don't owe this lands!").fail().send(player, false);
             return 1;
         }
-        claim.create = create;
+        claim.setCreate(create);
         new Message("The chunk (" + claim.x + ", " + claim.z + ") is now compatible with Create!");
         return 0;
     }

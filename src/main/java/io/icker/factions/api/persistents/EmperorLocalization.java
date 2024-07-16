@@ -47,6 +47,7 @@ public class EmperorLocalization {
 
     public void setLocaleForEmperorTitleHandlers(String localeForEmperorTitleHandlers) {
         if(localeForEmperorTitleHandlers == null) {this.localeForEmperorTitleHandlers = DynmapWrapper.getDefaultLocaleForEmperorTitleHandlers(Empire.getEmpire(this.uuid)); return;}
+        localeForEmperorTitleHandlers = localeForEmperorTitleHandlers.replaceAll("_", " ");
         if(localeForEmperorTitleHandlers.isEmpty() || localeForEmperorTitleHandlers.isBlank()) {
             this.localeForEmperorTitleHandlers = DynmapWrapper.getDefaultLocaleForEmperorTitleHandlers(Empire.getEmpire(this.uuid));
             addInQueue();
@@ -70,6 +71,7 @@ public class EmperorLocalization {
             addInQueue();
             return;
         }
+        localeForEmperorMainTitle = localeForEmperorMainTitle.replaceAll("_", " ");
         if(localeForEmperorMainTitle.isBlank() || localeForEmperorMainTitle.isEmpty()) {
             this.localeForEmperorMainTitle = DynmapWrapper.getEmperorDefaultMainTitleSuffix(Empire.getEmpire(this.uuid));
             addInQueue();

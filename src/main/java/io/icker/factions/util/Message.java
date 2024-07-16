@@ -96,7 +96,7 @@ public class Message {
             Faction vassal = Faction.get(vassalID);
             sendToFactionChat(vassal);
         }
-        sendToFactionChat(Faction.get(empire.metropolyID));
+        sendToFactionChat(Faction.get(empire.getMetropolyID()));
     }
 
     public Message prependFaction(Faction faction) {

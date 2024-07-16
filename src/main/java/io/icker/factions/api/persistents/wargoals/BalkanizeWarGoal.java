@@ -55,12 +55,12 @@ public class BalkanizeWarGoal extends BaseWarGoal{
         if(!isVictory) {
             String empireName = Empire.getEmpireByFaction(faction.getID()).name;
             empireName = empireName == null ? " самому себе " : "Королевству: §6["+empireName+"]§4";
-
             StateTypeable reverse = goal.findReverse(faction);
             Empire reverseEmpire = Empire.getEmpireByFaction(reverse.getID());
             String reverseName = reverseEmpire == null ? " цыганами из: §6[" + reverse.getCapitalState().getName() + "]§4" : "фашистами-фетишистами из: §6[" + reverseEmpire.name + "]§4.";
             new Message("§4Город: §6[" + faction.getName() + "]§4, принадлежащий" + empireName + ", был варварски опустошён" + reverseName).sendToGlobalChat();
             Empire origEmpire = Empire.getEmpireByFaction(faction.getID());
+            faction.remove();
             return;
         }
         Empire targetEmpire = Empire.getEmpireByFaction(victim.getID());
@@ -73,7 +73,7 @@ public class BalkanizeWarGoal extends BaseWarGoal{
 
 
             List<UUID> vassals = targetEmpire.getVassalsIDList();
-            vassals.add(targetEmpire.metropolyID);
+            vassals.add(targetEmpire.getMetropolyID());
             for(UUID id : vassals){
                 reparations(aggressor.getCapitalState(), Faction.get(id), 0.3f);
             }
@@ -86,8 +86,7 @@ public class BalkanizeWarGoal extends BaseWarGoal{
         sourceEmpire = sourceEmpire == null ? Empire.getEmpire(aggressor.getID()) : sourceEmpire;
         if(sourceEmpire != null){
 
-            List<UUID> vassals = sourceEmpire.getVassalsIDList();
-            vassals.add(sourceEmpire.metropolyID);
+            List<UUID> vassals = sourceEmpire.getVassalsIDList();;
             List<Faction> nearFactions = new ArrayList<>();
             for(UUID id : vassals){
                 Faction vassal = Faction.get(id);
@@ -97,15 +96,15 @@ public class BalkanizeWarGoal extends BaseWarGoal{
             Home home = victim.getCapitalState().getHome();
             int totalFactions = (int)((float)nearFactions.size()*0.3f);
             int j = 0;
-            for(int i = 0; i < totalFactions; i++){
+            for(int i = 0; i < totalFactions + 1; i++){
                 Faction vassal = nearFactions.get(i);
                 Home fHome = vassal.getHome();
                 boolean isNear = calculateRadiusDistance(home.x, home.z, fHome.x, fHome.z, 3072);
                 if(j>totalFactions+5) break;
                 j++;
                 if(!isNear) {i--; continue;}
-                sourceEmpire.getVassalsIDList().remove(vassal.getID());
-                targetEmpire.getVassalsIDList().add(vassal.getID());
+                sourceEmpire.removeVassal(vassal.getID());
+                targetEmpire.addVassal(vassal.getID());
                 new Message("§eГород: §c\""+ vassal.getName() + "\"§e вошёл в состав Империи: §5\"" + targetEmpire.name + "\", и выплатил репарации за причинённый ущерб.");
             }
             new Message("§eИмперия: \"§5" + targetEmpire.name + "§e\" победила королевство: \"§5" + sourceEmpire.name + "§e\" в оборонительной войне; Агрессорам пришлось заплатить огромную цену...").sendToGlobalChat();

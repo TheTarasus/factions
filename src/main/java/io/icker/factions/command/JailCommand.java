@@ -7,20 +7,15 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import io.icker.factions.FactionsMod;
 import io.icker.factions.api.persistents.*;
-import io.icker.factions.config.Config;
 import io.icker.factions.util.Command;
 import io.icker.factions.util.Message;
 import net.minecraft.command.argument.EntityArgumentType;
-import net.minecraft.entity.damage.DamageTracker;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.registry.Registry;
-import net.minecraft.util.registry.RegistryKey;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -102,14 +97,14 @@ public class JailCommand implements Command {
             new Message("§c" + target.getName().getString() + " is not in the jail!").fail().send(player, false);
             return 0;
         }
-        Faction jailFaction = Faction.getByName(targetUser.getPrisoner(source.getServer()).jailFaction);
+        Faction jailFaction = Faction.get(targetUser.getPrisoner(source.getServer()).jailFaction);
         boolean isInThatPrison = jailFaction.getName().equals(faction.getName());
         if(!isInThatPrison){
             new Message("§c" + target.getName().getString() + " is not in YOUR jail!").fail().send(player, false);
             return 0;
         }
         new Message("§e[JUDGEMENT]§a " + target.getName().getString() + "§e was released from prison by §9" + player.getName().getString() + "§e!").sendToGlobalChat();
-        jailFaction.jail.prisoners.removeIf(p -> p.prisoner.equals(targetUser.getName()));
+        jailFaction.jail.getPrisoners().removeIf(p -> p.prisoner.equals(targetUser.getName()));
         targetUser.resetImprisoned(source.getServer().getOverworld());
         return 1;
     }
@@ -133,7 +128,7 @@ public class JailCommand implements Command {
             return 0;
         }
         Faction targetFaction = targetUser.getFaction();
-        boolean willGo = faction.getName().equals(targetFaction.getName()) && targetUser.rank == User.Rank.MEMBER;
+        boolean willGo = faction.getName().equals(targetFaction.getName()) && targetUser.getRank() == User.Rank.MEMBER;
         if(!willGo) {
             new Message("§cThe target player is not in your faction or at least has the SHERIFF rank").fail().send(player, false);
             return 0;

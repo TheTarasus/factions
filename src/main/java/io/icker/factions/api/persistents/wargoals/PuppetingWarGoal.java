@@ -42,13 +42,13 @@ public class PuppetingWarGoal extends BaseWarGoal{
     @Override
     public void destroy(Faction faction) {
 
-        boolean kingdomWin = faction.getStateType() == WarGoal.StateType.FREE_STATE;
+        boolean kingdomWin = faction.getStateType().equals(WarGoal.StateType.FREE_STATE);
         WarGoal goal = faction.getActiveWargoal();
         StateTypeable victim = goal.findStateTypeable(goal.victim);
         StateTypeable aggressor = goal.findStateTypeable(goal.agressor);
 
         if(kingdomWin) {
-            User goodUser = vassalize(aggressor, victim);
+            User goodUser = vassalize(aggressor, faction);
             String username = goodUser == null ? "[Призрак]" : goodUser.getName();
             Empire empire = Empire.getEmpireByFaction(aggressor.getID());
             new Message("§aИмперия §6" + empire.name + "§a подчинила себе вольный город §6" + victim.getCapitalState().getName() + "§a, теперь им управляет наместник - §6" + username).sendToGlobalChat();

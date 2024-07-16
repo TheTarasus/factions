@@ -4,8 +4,11 @@ import java.util.UUID;
 
 import io.icker.factions.FactionsMod;
 import io.icker.factions.database.Field;
+import io.icker.factions.database.Name;
 
+@Name("Relationship")
 public class Relationship {
+
     public enum Status {
         ALLY,
         IMPROVED,
@@ -17,18 +20,31 @@ public class Relationship {
     @Field("Target")
     public UUID target;
 
+
+    @Field("Source")
+    public UUID source;
+
     @Field("Status")
-    public Status status;
+    private Status status;
 
     @Field("points")
     public int points;
 
-    public Relationship(UUID target, int points) {
+    public Relationship(UUID source, UUID target, int points) {
+        this.source = source;
         this.target = target;
-        this.points = points > FactionsMod.CONFIG.DAYS_TO_FABRICATE + 1 ? FactionsMod.CONFIG.DAYS_TO_FABRICATE : points;
-        this.points = points < -FactionsMod.CONFIG.DAYS_TO_FABRICATE - 1 ? FactionsMod.CONFIG.DAYS_TO_FABRICATE - 1 : points;
-        this.status = points == 0 ? Status.NEUTRAL : points < -FactionsMod.CONFIG.DAYS_TO_FABRICATE ? Status.ENEMY : points > FactionsMod.CONFIG.DAYS_TO_FABRICATE ? Status.ALLY : points > 0 ? Status.IMPROVED : Status.INSULTED;
+        this.points = points;
+        this.status = points == 0 ? Status.NEUTRAL : points <= -FactionsMod.CONFIG.DAYS_TO_FABRICATE ? Status.ENEMY : points >= FactionsMod.CONFIG.DAYS_TO_FABRICATE ? Status.ALLY : points > 0 ? Status.IMPROVED : Status.INSULTED;
     }
 
     public Relationship() { ; }
+
+
+    public Status getStatus() {
+        return status;
+    }
+
+    public void setStatus(int points) {
+        this.status = points == 0 ? Status.NEUTRAL : points <= -FactionsMod.CONFIG.DAYS_TO_FABRICATE ? Status.ENEMY : points >= FactionsMod.CONFIG.DAYS_TO_FABRICATE ? Status.ALLY : points > 0 ? Status.IMPROVED : Status.INSULTED;
+    }
 }
